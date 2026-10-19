@@ -1,0 +1,8 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Phase 1: all artwork is bundled with the site. Phase 2 will implement
+    // moderator-verified publishing with a trusted server and explicit rules.
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}
