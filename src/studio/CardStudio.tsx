@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ArrowLeft, Check, ChevronDown, CloudUpload, ImagePlus, LoaderCircle, Plus, ShieldCheck, Sparkles, Trash2, Upload, X, Zap } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, CloudUpload, ImagePlus, LoaderCircle, Plus, ShieldCheck, Sparkles, Trash2, Upload, X } from 'lucide-react'
 import { deleteOfficialCard, generateCartoonArtwork, publishOfficialCard, retireOfficialCard, saveOfficialCard, subscribeDrafts, uploadOriginal } from './api'
 import { battleEffectOptions, initialCard, type EditableCard, type OfficialCard } from './types'
 import { OfficialCardView } from './OfficialCardView'
