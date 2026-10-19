@@ -3,21 +3,34 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function owner(uid) { return signedIn() && request.auth.uid == uid; }
-    // Phase 1: profiles only. Do not grant general writes to game economies or cards.
+    function isSingleOwner() {
+      return signedIn()
+        && request.auth.token.fmOwner == true
+        && get(/databases/$(database)/documents/_system/owner).data.uid == request.auth.uid;
+    }
     match /players/{uid} {
-      allow get: if owner(uid);
-      allow list: if false;
-      allow create: if owner(uid)
-        && request.resource.data.keys().hasOnly(['displayName', 'email', 'updatedAt'])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() <= 32
+      allow get: if owner(uid); allow list: if false;
+      allow create: if owner(uid) && request.resource.data.keys().hasOnly(['displayName','email','updatedAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 32
         && request.resource.data.email == request.auth.token.email;
-      allow update: if owner(uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt'])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() <= 32
+      allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','email','updatedAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 32
         && request.resource.data.email == request.auth.token.email;
       allow delete: if false;
+    }
+    match /_system/{document} {
+      allow get: if document == 'owner' && signedIn() && request.auth.token.fmOwner == true && resource.data.uid == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+    match /cardDrafts/{cardId} {
+      allow read: if isSingleOwner();
+      // Card drafts are written ONLY by trusted callable Cloud Functions.
+      allow write: if false;
+    }
+    match /cards/{cardId} {
+      allow get, list: if resource.data.status == 'published' || isSingleOwner();
+      // Publication is performed ONLY by trusted callable Cloud Functions.
+      allow write: if false;
     }
     match /{document=**} { allow read, write: if false; }
   }

@@ -1,8 +1,22 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Phase 1: all artwork is bundled with the site. Phase 2 will implement
-    // moderator-verified publishing with a trusted server and explicit rules.
+    function isSingleOwner() {
+      return request.auth != null
+        && request.auth.token.fmOwner == true
+        && firestore.get(/databases/(default)/documents/_system/owner).data.uid == request.auth.uid;
+    }
+    match /card-art/{cardId}/original/{fileName} {
+      allow read: if isSingleOwner();
+      allow create: if isSingleOwner()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+    match /card-art/{cardId}/cartoon/{fileName} {
+      allow read: if isSingleOwner();
+      allow write: if false; // Cloud Function Admin SDK only
+    }
     match /{allPaths=**} { allow read, write: if false; }
   }
 }

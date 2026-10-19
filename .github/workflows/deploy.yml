@@ -20,6 +20,8 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run test
+      - run: npm --prefix functions install --no-audit --no-fund
+      - run: npm --prefix functions run test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

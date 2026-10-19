@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 import { getFirestore, doc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
+import { getFunctions } from 'firebase/functions'
 
 const app = initializeApp({
   apiKey: 'AIzaSyBgQU6mzSqZi-QD9-c-etav4zg2LiR3heY',
@@ -13,6 +15,8 @@ const app = initializeApp({
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+export const storage = getStorage(app)
+export const functions = getFunctions(app, 'us-central1')
 
 async function upsertPlayer(user: { uid: string; displayName: string | null; email: string | null }) {
   await setDoc(doc(db, 'players', user.uid), {

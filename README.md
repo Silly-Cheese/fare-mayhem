@@ -1,4 +1,4 @@
-# FARE MAYHEM — Phase 1
+# FARE MAYHEM — Phase 2
 
 **Five stars. Zero guarantees.** An original, cartoon-styled rideshare-driver trading card game. Phase 1 is a *functional training game*, not a multiplayer or collectible-card economy.
 
@@ -14,7 +14,7 @@
 ## Run locally
 
 ```bash
-npm ci
+npm install
 npm run test
 npm run dev
 ```
@@ -48,3 +48,54 @@ The Firebase `apiKey` embedded in `src/firebase.ts` is a **public Firebase web S
 - Phase 4+: persistent collections, validated decks, multiplayer, rewards, and trading, without allowing clients to mint cards.
 
 This game is an independent parody-style game featuring fictional rideshare drivers and is not affiliated with Uber.
+
+
+## Phase 2 — Single-owner Card Studio
+
+Phase 2 adds a **single-owner** authoring studio. Only a Firebase user whose UID matches the protected `_system/owner` document **AND** whose verified Firebase ID token contains the custom claim `fmOwner: true` may read drafts, upload source art, create official cards, publish, unpublish, or request cartoon illustrations. This is enforced by Firestore and Storage Security Rules and authenticated Cloud Functions. **There is no first-login/first-user administrative takeover.** No second administrator role or invitation mechanism is implemented.
+
+### Shipped in repository
+
+- Responsive owner-only Card Studio integrated in the game, with editable driver names, nicknames, editions, type, 1–5 stars or transcendent classes (`???`, `∞`, `UNRATED`), Fare cost, combat statistics, ability text, stories, and customer reviews.
+- Save/load drafts, on-device original artwork upload with progress (PNG/JPEG/WebP up to 8 MiB), 3D preview, publish/unpublish confirmations, and public live catalog of **published** cards. Training match remains separate in Phase 2; published cards are **not yet playable** until Phase 3 combat integration.
+- Trusted callable Cloud Functions: `saveOfficialCard`, `publishOfficialCard`, `retireOfficialCard`, and optional paid `generateCartoonArtwork`. Generation sends **the original uploaded artwork** to the OpenAI Images edit API using `gpt-image-1` and saves the generated result in Firebase Storage. Requires a separate OpenAI API key with image generation access; Firebase Blaze billing does NOT include API image-generation charges.
+- Owner bootstrap script, strict Firestore/Storage rules, deploy config, and card-validation unit tests. **Repository publication does not deploy functions or rules to Firebase automatically.**
+
+### Activate in your own Firebase project (one-time, manual)
+
+1. Sign in to your own Fare Mayhem Firebase Auth account (enable the desired sign-in provider in Firebase Console) and copy **your exact UID** from Firebase Console → Authentication → Users. Never paste your service account private key into GitHub.
+2. Ensure Firebase CLI and Application Default Credentials are configured on your secure workstation or Google Cloud Shell, with privileges to modify Firestore and Firebase Auth:
+
+   ```bash
+   npm install -g firebase-tools
+   firebase login
+   gcloud auth application-default login
+   cd functions && npm install
+   FARE_OWNER_UID='YOUR_EXACT_UID' node scripts/set-owner.mjs
+   cd ..
+   ```
+
+   The script checks the existing owner, refuses a silent owner transfer, grants the `fmOwner` custom claim, writes `_system/owner`, and revokes old owner tokens. An intentional transfer requires `FARE_ALLOW_OWNER_TRANSFER=yes`. The original owner should sign out and in afterward to get a fresh token. Keep the Admin SDK script off untrusted browsers. `firebase login` and `gcloud` credentials must be for the same project.
+3. Create a Firestore database and default Cloud Storage bucket in `fare-mayhem` if not already enabled. Upload access depends on Firestore access from Firebase Storage Security Rules; when deploying Storage rules for the first time, approve Firebase's requested cross-service permission so Storage can look up `_system/owner`.
+4. Deploy rules and **three core functions** (image-generation key is not required for these):
+
+   ```bash
+   firebase use fare-mayhem
+   firebase deploy --only firestore:rules,storage
+   firebase deploy --only functions:saveOfficialCard,functions:publishOfficialCard,functions:retireOfficialCard
+   ```
+
+5. To enable the **optional paid** Classic Cartoon transformation, set your own OpenAI key securely and deploy just the artwork function:
+
+   ```bash
+   firebase functions:secrets:set OPENAI_API_KEY
+   firebase deploy --only functions:generateCartoonArtwork
+   ```
+
+   Generations require explicit owner confirmation in the UI. The images are not automatically published. API usage may incur additional charges. Never put the API secret in frontend JS or GitHub secrets unless a deployment pipeline needs it.
+6. Turn on Firebase App Check, request throttling/monitoring, and billing alerts before broad public use. Blaze's billing alerts are not hard caps. The Cloud Function architecture includes `maxInstances` limits, but the owner-controlled image provider remains independently billable. Once configured, reload the website and sign in again to see **Card Studio** on the left navigation and in the header.
+7. For the existing GitHub Pages site: Settings → Pages → Source: **GitHub Actions**. Workflow now builds and tests the frontend AND the Cloud Functions TypeScript code, then deploys the static frontend. It **does not automatically deploy Firebase services**, because doing so requires privileged credentials.
+
+### Important release boundary
+
+Published official cards show up in **Driver Records** as public collectibles, but they're not added to the Phase 1 demo deck or player inventories. This avoids presenting unimplemented effects as playable and maintains the distinction between real official cards and test characters. Phase 3 adds the trusted battle engine and card effect interpretation.
