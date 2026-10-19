@@ -114,3 +114,105 @@ export const generateCartoonArtwork = onCall({region,timeoutSeconds:180,memory:'
   await document.ref.update({cartoonUrl:url,cartoonStoragePath:path,updatedAt:FieldValue.serverTimestamp()})
   return {url,storagePath:path}
 })
+
+/** Phase 3: every action is validated and applied in a Firestore transaction, never from client game state. */
+import { randomInt } from 'node:crypto'
+import { createBattle, applyCommand, officialBattleCard, publicView, type BattleState, type Command } from './battle'
+function requirePlayer(auth: {uid:string} | undefined): string {
+  if (!auth?.uid) throw new HttpsError('unauthenticated', 'Sign in to save and resume secure practice matches.')
+  return auth.uid
+}
+const secureRandom=()=>randomInt(0, 0x100000000)/0x100000000
+function checkCommand(data: unknown): Command {
+  if (!data || typeof data!=='object') throw new HttpsError('invalid-argument','Missing action.')
+  const d=data as Record<string,unknown>
+  if(d.type==='end') return {type:'end'}
+  if(d.type==='play' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'play',index:d.index as number}
+  if(d.type==='attack' && typeof d.attackerId==='string' && /^unit-\d{1,7}$/.test(d.attackerId)
+     && (d.targetId===undefined || (typeof d.targetId==='string' && /^unit-\d{1,7}$/.test(d.targetId))))
+    return {type:'attack',attackerId:d.attackerId,targetId:d.targetId as string | undefined}
+  throw new HttpsError('invalid-argument','Invalid battle action.')
+}
+
+export const startPracticeMatch = onCall({region,maxInstances:5,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
+  const uid=requirePlayer(request.auth)
+  if(request.data && (typeof request.data!=='object'||(request.data.restart!==undefined&&typeof request.data.restart!=='boolean')))
+    throw new HttpsError('invalid-argument','Invalid practice settings.')
+  const restart=request.data?.restart===true
+  const ref=db.doc(`practiceMatches/${uid}`)
+  // Read and resolve an existing session before doing any additional published-card reads.
+  const old=await ref.get()
+  if(old.exists && !restart){return {match:publicView(old.get('state') as BattleState),resumed:true}}
+  const snapshot=await db.collection('cards').where('status','==','published').limit(16).get()
+  const eligible=snapshot.docs.map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
+  const candidate=createBattle(eligible,secureRandom)
+  let active:BattleState=candidate
+  let resumed=false
+  await db.runTransaction(async tx=>{
+    const existing=await tx.get(ref)
+    const now=Date.now()
+    if(existing.exists){
+      const state=existing.get('state') as BattleState
+      if(!restart){active=state;resumed=true;return}
+      const lastStart=existing.get('startedAtMs') as number
+      if(typeof lastStart==='number'&&now-lastStart<8000)throw new HttpsError('resource-exhausted','Wait a few seconds before restarting another match.')
+    }
+    tx.set(ref,{uid,state:candidate,matchId:db.collection('practiceHistory').doc().id,startedAtMs:now,updatedAtMs:now})
+  })
+  return {match:publicView(active),resumed}
+})
+export const getPracticeMatch = onCall({region,maxInstances:5,enforceAppCheck:false}, async request=>{
+  const uid=requirePlayer(request.auth)
+  const snap=await db.doc(`practiceMatches/${uid}`).get()
+  if(!snap.exists)throw new HttpsError('not-found','Start a practice match first.')
+  return {match:publicView(snap.get('state') as BattleState)}
+})
+export const takePracticeAction = onCall({region,maxInstances:8,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
+  const uid=requirePlayer(request.auth)
+  const version=request.data?.version
+  if(!Number.isInteger(version)||version<1)throw new HttpsError('invalid-argument','Missing or invalid match version.')
+  const command=checkCommand(request.data?.action)
+  const ref=db.doc(`practiceMatches/${uid}`)
+  let result:BattleState|undefined
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref)
+    if(!snap.exists)throw new HttpsError('not-found','Your practice match no longer exists.')
+    const state=snap.get('state') as BattleState
+    if(state.version!==version)throw new HttpsError('aborted','Match changed. Reload it to continue.')
+    if(state.winner)throw new HttpsError('failed-precondition','This match is already finished.')
+    const next=applyCommand(state,command)
+    if(!next)throw new HttpsError('failed-precondition','That move is not legal right now.')
+    result=next
+    tx.update(ref,{state:next,updatedAtMs:Date.now()})
+    if(next.winner){
+      const historyId=snap.get('matchId') as string
+      tx.set(db.doc(`practiceHistory/${uid}/matches/${historyId}`),{
+        winner:next.winner,rounds:next.round,finishedAt:FieldValue.serverTimestamp(),mode:'secure-practice',
+        // Snapshotted battle log, without the AI hand or deck order.
+        log:next.log,playerUid:uid
+      })
+    }
+  })
+  return {match:publicView(result!)}
+})
+
+/** Permanently delete an official draft and public registry entry. No player inventory exists in Phase 3. */
+export const deleteOfficialCard = onCall({region,maxInstances:2,timeoutSeconds:60,enforceAppCheck:false}, async request=>{
+  await requireOwner(request.auth)
+  const id=request.data?.id
+  const confirmation=request.data?.confirmation
+  if(!validId(id))throw new HttpsError('invalid-argument','Invalid card ID.')
+  const source=db.doc(`cardDrafts/${id}`),published=db.doc(`cards/${id}`)
+  await db.runTransaction(async tx=>{
+    const draft=await tx.get(source)
+    if(!draft.exists)throw new HttpsError('not-found','This card has already been deleted.')
+    if(typeof confirmation!=='string'||confirmation!==draft.get('name'))throw new HttpsError('failed-precondition','Type the exact driver name to confirm permanent deletion.')
+    tx.delete(source)
+    tx.delete(published)
+  })
+  // Remove ALL prior original and generated art under this card ID (including superseded versions).
+  let artworkRemoved=true
+  try{await getStorage().bucket().deleteFiles({prefix:`card-art/${id}/`,force:true})}
+  catch(error){artworkRemoved=false;console.error('Card deleted, but artwork cleanup needs attention',id,error)}
+  return {deleted:true,artworkRemoved}
+})

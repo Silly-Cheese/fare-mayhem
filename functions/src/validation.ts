@@ -1,5 +1,6 @@
+import { EFFECTS, type Effect } from './battle'
 export type Rarity = 'standard' | 'transcendent'
-export type SafeCard = {name:string;nickname:string;kind:'driver'|'action';rarity:Rarity;stars:number;transcendentLabel:string;cost:number;attack:number;health:number;ability:string;flavor:string;customerReview:string;edition:string;originalUrl:string;originalStoragePath:string;cartoonUrl:string;cartoonStoragePath:string}
+export type SafeCard = {name:string;nickname:string;kind:'driver'|'action';rarity:Rarity;stars:number;transcendentLabel:string;cost:number;attack:number;health:number;ability:string;flavor:string;customerReview:string;edition:string;effectKey:Effect;originalUrl:string;originalStoragePath:string;cartoonUrl:string;cartoonStoragePath:string}
 function field(input: Record<string, unknown>, key: string, limit: number, required = false) {
   const value = input[key]
   if (typeof value !== 'string' || value.length > limit || (required && !value.trim())) throw Error(`Invalid ${key}.`)
@@ -19,12 +20,14 @@ export function validateCard(data: unknown): SafeCard {
   if (rarity !== 'standard' && rarity !== 'transcendent') throw Error('Invalid rarity.')
   const stars = numberField(v,'stars',1,5)
   const transcendentLabel = field(v,'transcendentLabel',12)
+  const effectKey:Effect = v.effectKey === undefined ? 'none' : (v.effectKey as Effect)
+  if (!EFFECTS.includes(effectKey)) throw Error('Invalid playable battle effect.')
   if (!['???','∞','UNRATED'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
     name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
     cost:numberField(v,'cost',0,10),attack:numberField(v,'attack',0,30),health:numberField(v,'health',1,30),
     ability:field(v,'ability',360),flavor:field(v,'flavor',600),customerReview:field(v,'customerReview',350),
-    edition:field(v,'edition',60,true),originalUrl:field(v,'originalUrl',2000),originalStoragePath:field(v,'originalStoragePath',300),
+    edition:field(v,'edition',60,true),effectKey,originalUrl:field(v,'originalUrl',2000),originalStoragePath:field(v,'originalStoragePath',300),
     cartoonUrl:field(v,'cartoonUrl',2000),cartoonStoragePath:field(v,'cartoonStoragePath',300)
   }
 }

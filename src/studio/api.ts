@@ -7,10 +7,12 @@ import type { EditableCard, OfficialCard } from './types'
 const callSave = httpsCallable<{ id?: string; card: EditableCard }, { id: string }>(functions, 'saveOfficialCard')
 const callPublish = httpsCallable<{ id: string }, { published: true }>(functions, 'publishOfficialCard')
 const callRetire = httpsCallable<{ id: string }, { retired: true }>(functions, 'retireOfficialCard')
+const callDelete = httpsCallable<{ id: string; confirmation: string }, { deleted: boolean; artworkRemoved: boolean }>(functions, 'deleteOfficialCard')
 const callGenerate = httpsCallable<{ id: string }, { url: string; storagePath: string }>(functions, 'generateCartoonArtwork', { timeout: 180000 })
 export const saveOfficialCard = async (card: EditableCard, id?: string) => (await callSave({ id, card })).data.id
 export const publishOfficialCard = async (id: string) => (await callPublish({ id })).data
 export const retireOfficialCard = async (id: string) => (await callRetire({ id })).data
+export const deleteOfficialCard = async (id: string, confirmation: string) => (await callDelete({id,confirmation})).data
 export const generateCartoonArtwork = async (id: string) => (await callGenerate({ id })).data
 
 function normalizeCard(id: string, data: DocumentData): OfficialCard {

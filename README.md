@@ -99,3 +99,48 @@ Phase 2 adds a **single-owner** authoring studio. Only a Firebase user whose UID
 ### Important release boundary
 
 Published official cards show up in **Driver Records** as public collectibles, but they're not added to the Phase 1 demo deck or player inventories. This avoids presenting unimplemented effects as playable and maintains the distinction between real official cards and test characters. Phase 3 adds the trusted battle engine and card effect interpretation.
+
+---
+
+## Phase 3 — Secure Practice, card editing, and permanent deletion
+
+**Phase 3 adds a server-authoritative solo battle mode, NOT online PvP.** Visitors can still play the Phase 1 browser-only training match without signing in. A signed-in player can use **Secure Practice**, which saves the current match in Firestore and sends each action through a callable Cloud Function. Phase 5 will introduce actual player-vs-player matchmaking. No rewards, ownership, or ranked ratings are granted for practice.
+
+### Game mechanics shipped
+
+- Five-card opening hands, twenty Reputation each, Fare refresh, three driver slots, 25-card decks, eight-card hand limit, arrival effects, counterattacks, fatigue, and victory/defeat detection.
+- Computer-opponent turn takes place on the server, not in the browser; server-side randomness shuffles the deck. Invalid actions, forged target IDs, out-of-turn actions, stale versions, and impossible plays are rejected.
+- Private opponent hand and deck order are **never returned** through the callable results. Direct Firestore reads/writes to the live battle document are denied. One active practice document per signed-in player.
+- A current match can be resumed; completed results are saved to a private per-player practice history (recent six results appear in Secure Practice). Restarting a match is rate-limited to avoid repeated backend calls.
+- Up to eight **published official cards** join the 25-card training deck during a new Secure Practice match; those cards are temporarily available as a test roster and **do not represent player ownership**. The server snapshots their combat data for the entire match, preventing mid-match edits or deletions from silently changing gameplay.
+- Official cards use explicitly selected **server-approved effect presets**. Text descriptions are not interpreted as executable gameplay. Cards created before Phase 3 default to `none` until the owner chooses a valid effect.
+
+### One-owner editing and deletion
+
+- The Card Studio now lets the single verified owner **edit any draft, published card, or unpublished card**, update stats/art and gameplay effects, and save the changes as staged edits.
+- To update an already published card, press **Update live card**. Saving alone does not change the public card until that action is confirmed.
+- **Unpublish** takes a card out of the public registry without deleting its draft or artwork.
+- **Delete permanently** requires typing the exact name of the card. The callable deletes the public registry record and private draft in a transaction and attempts to clean up every uploaded and generated image for that card in Storage. If Storage cleanup fails, the caller is informed and orphaned artwork may require manual cleanup. Deletion is irreversible; never treat it as a simple unpublish.
+- No client receives privilege based on its own UI. All edit/delete operations check the existing verified owner claim and the protected `_system/owner` record.
+
+### Enable Phase 3 in your Firebase project
+
+GitHub Pages deploys only the **static site**. Server functions and Firebase rules do **not** deploy by pushing to GitHub. From a trusted machine with the Firebase CLI authenticated to your project (and after completing Phase 2 owner bootstrap), run:
+
+```bash
+npm install
+cd functions && npm install && npm run test && cd ..
+npm run test && npm run build
+firebase use fare-mayhem
+firebase deploy --only firestore:rules,storage
+firebase deploy --only functions:saveOfficialCard,functions:publishOfficialCard,functions:retireOfficialCard,functions:deleteOfficialCard,functions:startPracticeMatch,functions:getPracticeMatch,functions:takePracticeAction
+```
+
+The optional paid cartoon-generation function is separate. To enable it, configure `OPENAI_API_KEY` through Firebase Functions secrets before deploying `generateCartoonArtwork` (see Phase 2 instructions). Do not paste your key into the site, repository, or Firebase web SDK config.
+
+### Security and launch precautions
+
+- Firestore practice state is intentionally **backend-only**. Don't grant browser `write` access to `practiceMatches` or `practiceHistory`.
+- Before open registration or heavy public traffic, turn on App Check with supported providers, enable rate-limiting/monitoring, test Firebase rules with the Emulator Suite, and configure billing alerts. App Check is currently intentionally not enforced so local and GitHub Pages integration can be tested; it is not a substitute for backend authorization.
+- There is no full owner dashboard to manage historical inventory because player collections are Phase 4. Permanent deletion currently has no collection dependencies, but later phases will need a retention policy for released cards once they can be owned/traded.
+- Cloud Functions deploy is a **manual privileged action**. No Firebase service account credential is in this repository.

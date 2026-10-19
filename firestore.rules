@@ -32,6 +32,12 @@ service cloud.firestore {
       // Publication is performed ONLY by trusted callable Cloud Functions.
       allow write: if false;
     }
+    // Browser clients must never see AI cards or modify trusted battle state.
+    match /practiceMatches/{uid} { allow read, write: if false; }
+    match /practiceHistory/{uid}/matches/{matchId} {
+      allow get, list: if owner(uid);
+      allow create, update, delete: if false;
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }
