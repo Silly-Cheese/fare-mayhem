@@ -16,13 +16,13 @@ function GamePiece({card,unit,onClick,selected,disabled=false}:{card:Driver;unit
     {unit&&<span className="practice-status">{unit.ready?'READY':'WAITING'}</span>}
   </button>
 }
-export function PracticeArena({user,onRequireSignIn}:{user:User|null;onRequireSignIn:()=>void}){
+export function PracticeArena({user,onRequireSignIn,deckSlot}:{user:User|null;onRequireSignIn:()=>void;deckSlot?:number}){
   const [match,setMatch]=useState<SecureMatch|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false)
   const [choice,setChoice]=useState<number|null>(null),[attacker,setAttacker]=useState<string|null>(null)
   const [history,setHistory]=useState<{id:string;winner:string;rounds:number}[]>([])
   useEffect(()=>{if(!user){setMatch(null);return}let live=true;void loadPractice().then(m=>{if(live)setMatch(m)}).catch(e=>{if(live&&!String(e).includes('not-found'))setError(errorText(e))});return()=>{live=false}},[user])
   useEffect(()=>{if(!user){setHistory([]);return}return onSnapshot(query(collection(db,'practiceHistory',user.uid,'matches'),orderBy('finishedAt','desc'),limit(6)),snap=>setHistory(snap.docs.map(d=>({id:d.id,winner:String(d.get('winner')||''),rounds:Number(d.get('rounds')||0)}))),()=>setHistory([]))},[user])
-  async function begin(restart=false){setBusy(true);setError('');try{setMatch((await beginPractice(restart)).match);setChoice(null);setAttacker(null)}catch(e){setError(errorText(e))}finally{setBusy(false)}}
+  async function begin(restart=false){setBusy(true);setError('');try{setMatch((await beginPractice(restart,deckSlot)).match);setChoice(null);setAttacker(null)}catch(e){setError(errorText(e))}finally{setBusy(false)}}
   async function move(command:SecureCommand){if(!match||busy)return;setBusy(true);setError('');try{setMatch(await practiceMove(match.version,command));setChoice(null);setAttacker(null)}catch(e){setError(errorText(e));if(String(e).includes('aborted')){try{setMatch(await loadPractice())}catch{ /* display previous error */ }}}finally{setBusy(false)}}
   if(!user)return <section className="page-content practice-landing page-enter"><span className="eyebrow"><ShieldCheck size={15}/> THE VERIFIED DISPATCH</span><h1>Battle with a referee.</h1><p>Play a secure, persistent training match with server-validated turns. Your opponent can't see your cards, and neither can you see theirs.</p><button className="button primary" onClick={onRequireSignIn}>Sign in to practice <ArrowRight size={17}/></button><p>Want to skip sign-in? The original local Training Match is still available.</p></section>
   return <section className="page-content practice-landing page-enter"><div className="practice-header"><div><span className="eyebrow"><ShieldCheck size={15}/> SERVER-VERIFIED · NO REWARDS</span><h1>Secure Practice<span className="punctuation">.</span></h1><p>Real combat rules. One suspicious dispatcher. No funny business.</p></div>{match&&<button className="button outline" disabled={busy} onClick={()=>void begin(true)}><RotateCcw size={16}/> New match</button>}</div>
