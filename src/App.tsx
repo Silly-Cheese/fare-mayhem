@@ -1,4 +1,5 @@
 import { PracticeArena } from './game/PracticeArena'
+import { CollectionPage } from './collection/CollectionPage'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth'
@@ -6,17 +7,17 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import { CardStudio } from './studio/CardStudio'
 import { PublishedCatalog } from './studio/PublishedCatalog'
-import { CarFront, Swords, LibraryBig, BookOpen, ArrowRight, UserRound, X, ChevronRight, Sparkles, Zap, Heart, RotateCcw, LogOut, Menu, CircleHelp, Play, CheckCircle2, Download, ShieldCheck, Volume2, Trophy, History, Flame, Info, LoaderCircle, Star, Lock } from 'lucide-react'
+import { CarFront, Swords, LibraryBig, Layers3, BookOpen, ArrowRight, UserRound, X, ChevronRight, Sparkles, Zap, Heart, RotateCcw, LogOut, Menu, CircleHelp, Play, CheckCircle2, Download, ShieldCheck, Volume2, Trophy, History, Flame, Info, LoaderCircle, Star, Lock } from 'lucide-react'
 import { auth, loginEmail, loginGoogle, registerEmail, logout } from './firebase'
 import { CARDS, type CardId } from './game/cards'
 import { attack, endTurn, makeGame, playCard, playable, runOpponentTurn, type Game } from './game/engine'
 import { GameCard } from './components/Card'
 import { DriverArt } from './components/Art'
 
-type Page = 'dispatch' | 'battle' | 'practice' | 'records' | 'rules' | 'studio'
+type Page = 'dispatch' | 'battle' | 'practice' | 'records' | 'collection' | 'rules' | 'studio'
 type AuthMode = 'login' | 'register'
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
-const navItems = [{ id: 'dispatch', label: 'Dispatch', icon: CarFront }, { id: 'battle', label: 'Training Match', icon: Swords }, { id: 'practice', label: 'Secure Practice', icon: ShieldCheck }, { id: 'records', label: 'Driver Records', icon: LibraryBig }, { id: 'rules', label: 'How to Play', icon: BookOpen }, { id: 'studio', label: 'Card Studio', icon: ShieldCheck }] as const
+const navItems = [{ id: 'dispatch', label: 'Dispatch', icon: CarFront }, { id: 'battle', label: 'Training Match', icon: Swords }, { id: 'practice', label: 'Secure Practice', icon: ShieldCheck }, { id: 'records', label: 'Driver Records', icon: LibraryBig }, { id: 'collection', label: 'My Collection', icon: Layers3 }, { id: 'rules', label: 'How to Play', icon: BookOpen }, { id: 'studio', label: 'Card Studio', icon: ShieldCheck }] as const
 const prettyError = (message: string) => {
   if (message.includes('auth/operation-not-allowed')) return 'That sign-in method is not enabled in Firebase yet. Enable it under Authentication → Sign-in method.'
   if (message.includes('auth/unauthorized-domain')) return 'This website domain needs to be added to Firebase Authentication authorized domains.'
@@ -161,6 +162,7 @@ export default function App() {
   const [authOpen,setAuthOpen]=useState(false)
   const [user,setUser]=useState<User|null>(null)
   const [isOwner,setIsOwner]=useState(false)
+  const [selectedPracticeDeck,setSelectedPracticeDeck]=useState<number|undefined>()
   const [menuOpen,setMenuOpen]=useState(false)
   const [installPrompt,setInstallPrompt]=useState<InstallEvent|null>(null)
   const [installHelp,setInstallHelp]=useState(false)
@@ -184,13 +186,13 @@ export default function App() {
   function go(p:Page) {if(p==='studio'&&!isOwner)return;setPage(p);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'})}
   function install() { if(installPrompt){installPrompt.prompt();void installPrompt.userChoice.then(()=>setInstallPrompt(null))}else setInstallHelp(true) }
   return <div className="app-shell"><aside className={`main-sidebar ${menuOpen?'expanded':''}`}><div className="brand" onClick={()=>go('dispatch')} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter')go('dispatch')}}><span className="brand-icon"><CarFront size={26} strokeWidth={2.7}/></span><span><b>FARE<span>MAYHEM</span></b><small>FIVE STARS. ZERO GUARANTEES.</small></span></div>
-    <div className="sidebar-label">DISPATCH TERMINAL</div><nav className="primary-nav" aria-label="Main menu">{navItems.filter(item=>(item.id!=='studio'||isOwner)&&(item.id!=='practice'||!!user)).map(item=><button key={item.id} onClick={()=>go(item.id)} aria-current={page===item.id?'page':undefined} className={page===item.id?'current':''}><item.icon size={20}/><span>{item.label}</span>{page===item.id&&<ChevronRight size={16} className="nav-chevron"/>}</button>)}</nav>
+    <div className="sidebar-label">DISPATCH TERMINAL</div><nav className="primary-nav" aria-label="Main menu">{navItems.filter(item=>(item.id!=='studio'||isOwner)&&(item.id!=='practice'||!!user)&&(item.id!=='collection'||!!user)).map(item=><button key={item.id} onClick={()=>go(item.id)} aria-current={page===item.id?'page':undefined} className={page===item.id?'current':''}><item.icon size={20}/><span>{item.label}</span>{page===item.id&&<ChevronRight size={16} className="nav-chevron"/>}</button>)}</nav>
     <div className="sidebar-bottom"><div className="sidebar-sticker"><span className="sticker-eyebrow">PUBLIC SERVICE NOTICE</span><span>Our drivers are<br/><b>not okay.</b></span><CarFront size={33}/></div><button className="profile-button" onClick={()=>user?void logout():setAuthOpen(true)}><span className="profile-icon"><UserRound size={19}/></span><span><b>{user?(user.displayName||'Driver'):'Guest driver'}</b><small>{user?'Sign out':'Sign in or register'}</small></span>{user?<LogOut size={16}/>:<ArrowRight size={16}/>}</button></div>
   </aside>
   <div className="app-main"><header className="topbar"><button className="mobile-menu icon-button" onClick={()=>setMenuOpen(v=>!v)} aria-label={menuOpen?'Close menu':'Open menu'}>{menuOpen?<X size={22}/>:<Menu size={22}/>}</button><div className="topbar-breadcrumb"><span>FARE MAYHEM</span><ChevronRight size={15}/><b>{navItems.find(n=>n.id===page)?.label}</b></div><div className="topbar-right"><span className="online-pill"><span/> PHASE 04</span>{isOwner&&<button className="button outline owner-top-button" onClick={()=>go('studio')}><ShieldCheck size={16}/> Card Studio</button>}<button className="icon-button install-button" onClick={install} title="Install Fare Mayhem" aria-label="Install Fare Mayhem"><Download size={20}/></button><button className="account-pill" onClick={()=>user?void logout():setAuthOpen(true)}><UserRound size={17}/><span>{user?user.displayName||'Account':'Sign in'}</span>{user?<LogOut size={14}/>:<ArrowRight size={15}/>}</button></div></header>
-    <main>{page==='studio'&&isOwner?<CardStudio/>:page==='dispatch'?<Dispatch go={go} inspect={setInspect} user={user}/>:page==='battle'?<Battle inspect={setInspect}/>:page==='practice'?<PracticeArena user={user} onRequireSignIn={()=>setAuthOpen(true)}/>:page==='records'?<Records inspect={setInspect}/>:<Rules go={go}/>}</main>
+    <main>{page==='studio'&&isOwner?<CardStudio/>:page==='dispatch'?<Dispatch go={go} inspect={setInspect} user={user}/>:page==='battle'?<Battle inspect={setInspect}/>:page==='practice'?<PracticeArena user={user} deckSlot={selectedPracticeDeck} onRequireSignIn={()=>setAuthOpen(true)}/>:page==='collection'?<CollectionPage user={user} onRequireSignIn={()=>setAuthOpen(true)} onPlay={slot=>{setSelectedPracticeDeck(slot);go('practice')}}/>:page==='records'?<Records inspect={setInspect}/>:<Rules go={go}/>}</main>
     <footer className="footer"><span>© {new Date().getFullYear()} FARE MAYHEM</span><span>Terrible drivers. Excellent battles.</span><span>PHASE 04 · VERIFIED PRACTICE</span></footer>
-  </div><nav className="mobile-bottom-nav" aria-label="Mobile navigation">{navItems.filter(item=>item.id!=='studio'&&item.id!=='practice').map(item=><button key={item.id} className={page===item.id?'active':''} onClick={()=>go(item.id)} aria-label={item.label}><item.icon size={21}/><span>{item.id==='dispatch'?'Home':item.id==='battle'?'Battle':item.id==='records'?'Cards':'Rules'}</span></button>)}</nav>
+  </div><nav className="mobile-bottom-nav" aria-label="Mobile navigation">{navItems.filter(item=>item.id!=='studio'&&item.id!=='practice'&&(item.id!=='collection'||!!user)).map(item=><button key={item.id} className={page===item.id?'active':''} onClick={()=>go(item.id)} aria-label={item.label}><item.icon size={21}/><span>{item.id==='dispatch'?'Home':item.id==='battle'?'Battle':item.id==='records'?'Cards':item.id==='collection'?'Owned':'Rules'}</span></button>)}</nav>
   {menuOpen&&<button className="sidebar-scrim" onClick={()=>setMenuOpen(false)} aria-label="Close navigation"/>}
   {inspect&&<InspectDialog key={inspect} id={inspect} onClose={()=>setInspect(null)}/>}
   {authOpen&&<AuthDialog onClose={()=>setAuthOpen(false)} onAuthenticated={()=>setAuthOpen(false)}/>}
