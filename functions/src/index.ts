@@ -93,6 +93,8 @@ export const startPracticeMatch = onCall({region,maxInstances:5,timeoutSeconds:3
   const uid=requirePlayer(request.auth)
   if(request.data && (typeof request.data!=='object'||(request.data.restart!==undefined&&typeof request.data.restart!=='boolean')))
     throw new HttpsError('invalid-argument','Invalid practice settings.')
+  const deckSlot=request.data?.deckSlot
+  if(deckSlot!==undefined&&(!Number.isInteger(deckSlot)||deckSlot<1||deckSlot>3))throw new HttpsError('invalid-argument','Invalid collection deck slot.')
   const restart=request.data?.restart===true
   const ref=db.doc(`practiceMatches/${uid}`)
   // Read and resolve an existing session before doing any additional published-card reads.
@@ -100,7 +102,24 @@ export const startPracticeMatch = onCall({region,maxInstances:5,timeoutSeconds:3
   if(old.exists && !restart){return {match:publicView(old.get('state') as BattleState),resumed:true}}
   const snapshot=await db.collection('cards').where('status','==','published').limit(16).get()
   const eligible=snapshot.docs.map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
-  const candidate=createBattle(eligible,secureRandom)
+  let ownedIds:string[]|undefined
+  if(deckSlot!==undefined){
+    const selected=await db.doc(`playerDecks/${uid}/slots/slot-${deckSlot}`).get()
+    const ids=selected.get('ids') as unknown
+    if(!Array.isArray(ids)||ids.length!==25||ids.some(x=>typeof x!=='string'||!validId(x)))throw new HttpsError('failed-precondition','Select a saved, complete collection deck first.')
+    const counts=new Map<string,number>()
+    for(const id of ids){counts.set(id,(counts.get(id)||0)+1);if(counts.get(id)!>3)throw new HttpsError('failed-precondition','Deck has too many copies of one card.')}
+    const ownedCards=await Promise.all([...counts.entries()].map(async([id,n])=>{
+      const [item,source]=await Promise.all([db.doc(`playerCollections/${uid}/cards/${id}`).get(),db.doc(`cards/${id}`).get()])
+      if(!source.exists||source.get('status')!=='published'||Number(item.get('quantity')||0)<n)throw new HttpsError('failed-precondition','This deck includes cards you no longer own or which have been retired.')
+      const card=officialBattleCard(id,source.data()!)
+      if(!card)throw new HttpsError('failed-precondition','A deck card has invalid battle data.')
+      return card
+    }))
+    eligible.push(...ownedCards)
+    ownedIds=ids
+  }
+  const candidate=createBattle(eligible,secureRandom,ownedIds)
   let active:BattleState=candidate
   let resumed=false
   await db.runTransaction(async tx=>{
