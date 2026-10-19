@@ -71,6 +71,7 @@ export const retireOfficialCard = onCall({region, maxInstances: 3, enforceAppChe
 
 /** Phase 3: every action is validated and applied in a Firestore transaction, never from client game state. */
 import { randomInt } from 'node:crypto'
+import { awardPracticeWin } from './collection'
 import { createBattle, applyCommand, officialBattleCard, publicView, type BattleState, type Command } from './battle'
 function requirePlayer(auth: {uid:string} | undefined): string {
   if (!auth?.uid) throw new HttpsError('unauthenticated', 'Sign in to save and resume secure practice matches.')
@@ -128,6 +129,7 @@ export const takePracticeAction = onCall({region,maxInstances:8,timeoutSeconds:3
   const command=checkCommand(request.data?.action)
   const ref=db.doc(`practiceMatches/${uid}`)
   let result:BattleState|undefined
+  let rewardId:string|undefined
   await db.runTransaction(async tx=>{
     const snap=await tx.get(ref)
     if(!snap.exists)throw new HttpsError('not-found','Your practice match no longer exists.')
@@ -137,13 +139,14 @@ export const takePracticeAction = onCall({region,maxInstances:8,timeoutSeconds:3
     const next=applyCommand(state,command)
     if(!next)throw new HttpsError('failed-precondition','That move is not legal right now.')
     result=next
+    if(next.winner==='player')rewardId=await awardPracticeWin(tx,uid,next)
     tx.update(ref,{state:next,updatedAtMs:Date.now()})
     if(next.winner){
       const historyId=snap.get('matchId') as string
       tx.set(db.doc(`practiceHistory/${uid}/matches/${historyId}`),{
         winner:next.winner,rounds:next.round,finishedAt:FieldValue.serverTimestamp(),mode:'secure-practice',
         // Snapshotted battle log, without the AI hand or deck order.
-        log:next.log,playerUid:uid
+        log:next.log,playerUid:uid,rewardCardId:rewardId||null
       })
     }
   })
@@ -170,3 +173,5 @@ export const deleteOfficialCard = onCall({region,maxInstances:2,timeoutSeconds:6
   catch(error){artworkRemoved=false;console.error('Card deleted, but artwork cleanup needs attention',id,error)}
   return {deleted:true,artworkRemoved}
 })
+
+export { getCollectionDashboard, saveCollectionDeck } from './collection'
