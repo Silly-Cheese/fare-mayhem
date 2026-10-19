@@ -15,7 +15,10 @@ service firebase.storage {
     }
     match /card-art/{cardId}/cartoon/{fileName} {
       allow read: if isSingleOwner();
-      allow write: if false; // Cloud Function Admin SDK only
+      allow create: if isSingleOwner()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
     }
     match /{allPaths=**} { allow read, write: if false; }
   }

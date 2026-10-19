@@ -1,8 +1,9 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ArrowLeft, Check, ChevronDown, CloudUpload, ImagePlus, LoaderCircle, Plus, ShieldCheck, Sparkles, Trash2, Upload, X } from 'lucide-react'
-import { deleteOfficialCard, generateCartoonArtwork, publishOfficialCard, retireOfficialCard, saveOfficialCard, subscribeDrafts, uploadOriginal } from './api'
+import { ArrowLeft, Check, ChevronDown, CloudUpload, ImagePlus, LoaderCircle, Plus, ShieldCheck, Trash2, Upload, X } from 'lucide-react'
+import { deleteOfficialCard, publishOfficialCard, retireOfficialCard, saveOfficialCard, subscribeDrafts, uploadArtwork } from './api'
 import { battleEffectOptions, initialCard, type EditableCard, type OfficialCard } from './types'
 import { OfficialCardView } from './OfficialCardView'
+import { BulkImport } from './BulkImport'
 import './studio.css'
 
 function friendly(message: string) {
@@ -22,7 +23,8 @@ export function CardStudio() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [progress, setProgress] = useState<number | null>(null)
-  const [confirm, setConfirm] = useState<'generate' | 'publish' | 'retire' | 'delete' | null>(null)
+  const [showImport, setShowImport] = useState(false)
+  const [confirm, setConfirm] = useState<'publish' | 'retire' | 'delete' | null>(null)
   const [deleteTyped, setDeleteTyped] = useState('')
   const [tab, setTab] = useState<'details' | 'artwork'>('details')
   useEffect(() => subscribeDrafts(setDrafts, e => setError(friendly(e.message))), [])
@@ -37,7 +39,7 @@ export function CardStudio() {
     await action('upload',async()=>{
       let id=selectedId
       if(!id){id=await saveOfficialCard(card);setSelectedId(id)}
-      const result=await uploadOriginal(id,file,setProgress)
+      const result=await uploadArtwork(id,file,setProgress,'original')
       const next={ ...card, originalUrl:result.url, originalStoragePath:result.storagePath }
       await saveOfficialCard(next,id)
       setCard(next);setNotice('Original illustration uploaded and attached to the draft.')
@@ -46,20 +48,14 @@ export function CardStudio() {
   async function runConfirmed() {
     const kind=confirm;setConfirm(null)
     if(!kind||!selectedId)return
-    if(kind==='generate') await action('generate',async()=>{
-      await saveOfficialCard(card,selectedId)
-      const res=await generateCartoonArtwork(selectedId)
-      setCard(c=>({...c,cartoonUrl:res.url,cartoonStoragePath:res.storagePath}))
-      setNotice('Cartoon illustration generated. Review it before publishing.')
-      setTab('artwork')
-    })
     if(kind==='publish') await action('publish',async()=>{await saveOfficialCard(card,selectedId);await publishOfficialCard(selectedId);setNotice('Card published to the public Driver Records.')})
     if(kind==='retire') await action('retire',async()=>{await retireOfficialCard(selectedId);setNotice('Card removed from the public catalog; the draft is preserved.')})
     if(kind==='delete') await action('delete',async()=>{const outcome=await deleteOfficialCard(selectedId,deleteTyped);createNew();setDeleteTyped('');setNotice(outcome.artworkRemoved?'Card and all associated artwork permanently deleted.':'Card deleted. Artwork cleanup needs administrator attention; inspect Firebase Storage.');})
   }
   const preview={ ...card, id:selectedId||'preview',status:'draft' as const }
   return <div className="page-content studio-page page-enter">
-    <div className="studio-head"><div><span className="eyebrow"><ShieldCheck size={15}/> OWNER ACCESS · PRIVATE</span><h1>Card Studio<span className="punctuation">.</span></h1><p>Your drivers. Your rules. Nothing goes public until you say so.</p></div><button className="button primary" type="button" onClick={createNew}><Plus size={17}/> New card</button></div>
+    <div className="studio-head"><div><span className="eyebrow"><ShieldCheck size={15}/> OWNER ACCESS · PRIVATE</span><h1>Card Studio<span className="punctuation">.</span></h1><p>Your drivers. Your rules. Nothing goes public until you say so.</p></div><div className="studio-head-actions"><button className="button outline" type="button" onClick={()=>setShowImport(v=>!v)}><Upload size={16}/> {showImport?'Close Import':'Bulk Import'}</button><button className="button primary" type="button" onClick={createNew}><Plus size={17}/> New card</button></div></div>
+    {showImport&&<BulkImport onClose={()=>setShowImport(false)}/>}
     <div className="studio-layout">
       <aside className="studio-roster"><div className="studio-roster-top"><span>YOUR WORKBENCH</span><b>{drafts.length} cards</b></div><button className={`studio-roster-item ${!selectedId?'active':''}`} onClick={createNew}><Plus size={18}/><span>Untitled new card<small>Start from scratch</small></span></button>
         {drafts.map(d=><button key={d.id} className={`studio-roster-item ${selectedId===d.id?'active':''}`} onClick={()=>select(d.id)}><span className="studio-roster-thumb">{d.cartoonUrl||d.originalUrl?<img src={d.cartoonUrl||d.originalUrl} alt=""/>:<ImagePlus size={17}/>}</span><span>{d.name}<small>{d.status==='published'?'● Public':d.status==='retired'?'◌ Unpublished':'○ Draft'} · {d.edition}</small></span></button>)}
@@ -77,7 +73,7 @@ export function CardStudio() {
             <div className="studio-form-section"><h3>Driver file</h3><label>Special ability<textarea required maxLength={360} rows={3} value={card.ability} onChange={e=>change('ability',e.target.value)} placeholder="On arrival: steal 1 Fare from the opponent." /></label><label>Backstory<textarea maxLength={600} rows={3} value={card.flavor} onChange={e=>change('flavor',e.target.value)} placeholder="Chronically hungry. Frequently late." /></label><label>Customer review<textarea maxLength={350} rows={2} value={card.customerReview} onChange={e=>change('customerReview',e.target.value)} placeholder="He tried to eat my donut..." /></label></div>
           </>:<>
             <div className="studio-form-section"><h3>The original drawing</h3><p className="studio-hint">Upload your actual handwritten character. Only the owner can upload or edit artwork. Accepted: PNG, JPEG, WebP up to 8 MB.</p><label className="studio-upload"><CloudUpload size={26}/><span>{busy==='upload'?'Uploading…':'Choose original artwork'}</span><small>From your device</small><input type="file" accept="image/png,image/jpeg,image/webp" disabled={!!busy} onChange={upload}/></label>{progress!==null&&<progress max={100} value={progress} className="studio-progress"/>}{card.originalUrl&&<div className="studio-art-preview"><img src={card.originalUrl} alt="Uploaded original drawing"/><span>Original illustration saved</span></div>}</div>
-            <div className="studio-form-section"><h3>Classic Cartoon edition</h3><p className="studio-hint">Turn the hand-drawn character into a polished cartoon. Generation uses an external image API and may incur charges. Always review the result before release.</p>{card.cartoonUrl&&<div className="studio-art-preview"><img src={card.cartoonUrl} alt="Generated classic cartoon illustration"/><span>Digital illustration</span></div>}<button type="button" className="button outline" disabled={!!busy || !selectedId || !card.originalStoragePath} onClick={()=>setConfirm('generate')}><Sparkles size={17}/> {card.cartoonUrl?'Regenerate cartoon':'Generate cartoon illustration'}</button>{!selectedId&&<p className="studio-hint">Save the draft before generating artwork.</p>}</div>
+            <div className="studio-form-section"><h3>Classic Cartoon edition</h3><p className="studio-hint">Upload a cartoon illustration made here in ChatGPT or elsewhere. This does not need an OpenAI API key.</p><label className="studio-upload"><CloudUpload size={23}/><span>{busy==='cartoon'?'Uploading…':'Choose cartoon artwork'}</span><small>PNG, JPG or WebP · 8 MB limit</small><input type="file" accept="image/png,image/jpeg,image/webp" disabled={!!busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;await action('cartoon',async()=>{let id=selectedId;if(!id){id=await saveOfficialCard(card);setSelectedId(id)}const art=await uploadArtwork(id,file,setProgress,'cartoon');const next={...card,cartoonUrl:art.url,cartoonStoragePath:art.storagePath};await saveOfficialCard(next,id);setCard(next);setNotice('Cartoon artwork uploaded. Review before publishing.')});setProgress(null)}}/></label>{card.cartoonUrl&&<div className="studio-art-preview"><img src={card.cartoonUrl} alt="Your uploaded cartoon illustration"/><span>Cartoon illustration</span></div>}</div>}<button type="button" className="button outline" disabled={!!busy || !selectedId || !card.originalStoragePath} onClick={()=>setConfirm('generate')}><Sparkles size={17}/> {card.cartoonUrl?'Regenerate cartoon':'Generate cartoon illustration'}</button>{!selectedId&&<p className="studio-hint">Save the draft before generating artwork.</p>}</div>
           </>}
           {error&&<p role="alert" className="studio-warning">{error}</p>}{notice&&<p role="status" className="studio-success"><Check size={16}/> {notice}</p>}
           <div className="studio-footer"><button className="button primary" type="submit" disabled={!!busy || !card.name.trim()}>{busy==='save'?<LoaderCircle className="spin" size={16}/>:<Check size={16}/>} {selectedId?'Save changes':'Create draft'}</button>{selectedId&&<button type="button" className="button outline" disabled={!!busy || !card.name.trim() || !card.ability.trim() || !(card.cartoonUrl||card.originalUrl)} onClick={()=>setConfirm('publish')}><Upload size={16}/> {current?.status==='published'?'Update live card':'Publish card'}</button>}{selectedId&&current?.status==='published'&&<button className="button subtle-danger" type="button" disabled={!!busy} onClick={()=>setConfirm('retire')}>Unpublish</button>}{selectedId&&<button className="button subtle-danger" type="button" disabled={!!busy} onClick={()=>{setDeleteTyped('');setConfirm('delete')}}><Trash2 size={16}/> Delete permanently</button>}</div>
@@ -85,6 +81,6 @@ export function CardStudio() {
       </div>
       <aside className="studio-preview"><div className="studio-preview-label"><span>LIVE PREVIEW</span><ChevronDown size={15}/></div><OfficialCardView card={preview}/><p>Preview only. Edits to published cards are staged until you choose Update live card. Current practice matches keep their original card snapshots.</p>{current?.status==='published'&&<span className="studio-published-marker">● CURRENTLY PUBLIC</span>}</aside>
     </div>
-    {confirm&&<div className="dialog-cover" onMouseDown={e=>{if(e.target===e.currentTarget)setConfirm(null)}}><section className="dialog studio-confirm" role="alertdialog" aria-modal="true" aria-label="Confirm card action"><button className="icon-button dialog-close" onClick={()=>setConfirm(null)} aria-label="Cancel"><X size={18}/></button><span className="eyebrow">OWNER CONFIRMATION</span><h2>{confirm==='generate'?'Generate cartoon artwork?':confirm==='publish'?'Publish the latest version?':confirm==='delete'?'Delete this card permanently?':'Remove this card from the public registry?'}</h2><p>{confirm==='generate'?'This calls a paid image-generation API and may generate provider and Firebase charges. Your original drawing is preserved.':confirm==='publish'?'Your saved changes will replace the currently published card. Existing battle sessions keep their own snapshots.':confirm==='delete'?'This cannot be undone. The original drawing, cartoon versions, saved draft, and public card entry will be removed. Existing battle logs retain historical card names.':'The card will stop appearing publicly. The private draft and images are preserved.'}</p>{confirm==='delete'&&<label className="studio-delete-label">Type <strong>{current?.name}</strong> exactly to confirm<input value={deleteTyped} onChange={e=>setDeleteTyped(e.target.value)} autoComplete="off" aria-label="Confirm card name for deletion" /></label>}<div className="studio-footer"><button className="button outline" onClick={()=>setConfirm(null)}><ArrowLeft size={16}/> Cancel</button><button disabled={confirm==='delete' && deleteTyped!==current?.name} className={confirm==='delete'?'button subtle-danger':'button primary'} onClick={()=>void runConfirmed()}><Check size={16}/> {confirm==='generate'?'Generate':confirm==='delete'?'Delete forever':'Confirm'}</button></div></section></div>}
+    {confirm&&<div className="dialog-cover" onMouseDown={e=>{if(e.target===e.currentTarget)setConfirm(null)}}><section className="dialog studio-confirm" role="alertdialog" aria-modal="true" aria-label="Confirm card action"><button className="icon-button dialog-close" onClick={()=>setConfirm(null)} aria-label="Cancel"><X size={18}/></button><span className="eyebrow">OWNER CONFIRMATION</span><h2>{confirm==='publish'?'Publish the latest version?':confirm==='delete'?'Delete this card permanently?':'Remove this card from the public registry?'}</h2><p>{confirm==='publish'?'Your saved changes will replace the currently published card. Existing battle sessions keep their own snapshots.':confirm==='delete'?'This cannot be undone. The original drawing, cartoon versions, saved draft, and public card entry will be removed. Existing battle logs retain historical card names.':'The card will stop appearing publicly. The private draft and images are preserved.'}</p>{confirm==='delete'&&<label className="studio-delete-label">Type <strong>{current?.name}</strong> exactly to confirm<input value={deleteTyped} onChange={e=>setDeleteTyped(e.target.value)} autoComplete="off" aria-label="Confirm card name for deletion" /></label>}<div className="studio-footer"><button className="button outline" onClick={()=>setConfirm(null)}><ArrowLeft size={16}/> Cancel</button><button disabled={confirm==='delete' && deleteTyped!==current?.name} className={confirm==='delete'?'button subtle-danger':'button primary'} onClick={()=>void runConfirmed()}><Check size={16}/> {confirm==='delete'?'Delete forever':'Confirm'}</button></div></section></div>}
   </div>
 }
