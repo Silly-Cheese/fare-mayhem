@@ -9,7 +9,25 @@ const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,c
 /** Reviewed suggestions for cards whose printed effect is legible in the sample.
  * These are filename-based hints, NOT image/OCR extraction. The owner must verify.
  */
+const actionPresets:Record<string,Partial<EditableCard>> = {
+  "reputation repair":{kind:'action',nickname:'Action Card',stars:2,cost:1,attack:0,health:1,ability:"Restore 2 Reputation.",effectKey:"reputation_repair_restore_2"},
+  "tip boost":{kind:'action',nickname:'Action Card',stars:2,cost:1,attack:0,health:1,ability:"Gain 2 Fare.",effectKey:"tip_boost_gain_2_fare"},
+  "detour":{kind:'action',nickname:'Action Card',stars:3,cost:2,attack:0,health:1,ability:"Return a Driver to its owner’s hand.",effectKey:"detour_return_driver_to_hand"},
+  "lucky break":{kind:'action',nickname:'Action Card',stars:3,cost:2,attack:0,health:1,ability:"Prevent the next damage to a Driver.",effectKey:"lucky_break_prevent_next_damage"},
+  "backseat boost":{kind:'action',nickname:'Action Card',stars:2,cost:2,attack:0,health:1,ability:"Give a Driver +2 HP.",effectKey:"backseat_boost_add_2_hp"},
+  "draw up":{kind:'action',nickname:'Action Card',stars:2,cost:1,attack:0,health:1,ability:"Draw 2 cards.",effectKey:"draw_up_draw_2"},
+  "nope!":{kind:'action',nickname:'Action Card',stars:2,cost:1,attack:0,health:1,ability:"Cancel an Action card just played.",effectKey:"nope_cancel_action"},
+  "second wind":{kind:'action',nickname:'Action Card',stars:2,cost:2,attack:0,health:1,ability:"Restore 2 HP to a Driver.",effectKey:"second_wind_heal_driver_2"},
+  "switcheroo":{kind:'action',nickname:'Action Card',stars:2,cost:2,attack:0,health:1,ability:"Swap 2 Drivers.",effectKey:"switcheroo_swap_2_drivers"},
+  "fare boost":{kind:'action',nickname:'Action Card',stars:2,cost:2,attack:0,health:1,ability:"Gain 2 Fare.",effectKey:"fare_boost_gain_2_fare"},
+  "quick arrival":{kind:'action',nickname:'Action Card',stars:2,cost:1,attack:0,health:1,ability:"A Driver arrives instantly.",effectKey:"quick_arrival_instant_driver"},
+  "team spirit":{kind:'action',nickname:'Action Card',stars:2,cost:2,attack:0,health:1,ability:"All your Drivers gain +1 HP.",effectKey:"team_spirit_all_drivers_hp_1"},
+  "steal the spotlight":{kind:'action',nickname:'Action Card',stars:2,cost:3,attack:0,health:1,ability:"Steal 1 Fare from another Driver.",effectKey:"steal_spotlight_steal_1_fare"},
+  "total chaos":{kind:'action',nickname:'Action Card',stars:2,cost:4,attack:0,health:1,ability:"Everyone discards 1 card, then draws 1.",effectKey:"total_chaos_cycle_1_all"},
+  "extra turn":{kind:'action',nickname:'Action Card',stars:2,cost:4,attack:0,health:1,ability:"Take another Action immediately.",effectKey:"extra_turn_extra_action"},
+}
 function suggestedFromFilename(name:string):Partial<EditableCard> {
+  if(actionPresets[name.toLowerCase()])return actionPresets[name.toLowerCase()]
   switch(name.toLowerCase()){
     case 'god':return {rarity:'transcendent',stars:10,transcendentLabel:'★10',cost:0,attack:0,health:50,effectKey:'divine_judgment_resurrection'}
     case 'the sun':return {rarity:'transcendent',stars:0,transcendentLabel:'☀',cost:2,attack:2,health:10,effectKey:'sun_solar_flare_all_5'}
@@ -65,6 +83,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
         if(!card.edition.trim())throw Error('Edition is required.')
         if(!['driver','action'].includes(card.kind))throw Error('Choose a valid type.')
         if(card.kind==='action'&&/^(attack_|defeat_|turn_)/.test(card.effectKey))throw Error('Choose a non-driver ability for an action card.')
+        if(card.kind==='driver'&&battleEffectOptions.find(x=>x.value===card.effectKey)?.category==='Action cards')throw Error('This special effect is for an Action card.')
         if(!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>50)throw Error('Invalid cost, attack or health.')
         if(existing.some(d=>d.name.toLowerCase()===card.name.trim().toLowerCase()&&d.edition.toLowerCase()===card.edition.trim().toLowerCase()))throw Error('Already exists in Card Studio. Review it there; this image-only importer does not overwrite existing cards.')
         if(items.some((other,j)=>j<i&&other.card.name.trim().toLowerCase()===card.name.trim().toLowerCase()&&other.card.edition.trim().toLowerCase()===card.edition.trim().toLowerCase()))throw Error('Duplicate name and edition within this batch.')
