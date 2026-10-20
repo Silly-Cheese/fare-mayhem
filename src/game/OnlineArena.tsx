@@ -99,7 +99,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
           {!m.winner&&<button className="button subtle-danger" disabled={busy} onClick={()=>void move({type:'forfeit'})}>Forfeit</button>}
         </div></div>
       <div className="online-match-log"><h3>Dispatch feed</h3><p className="online-hint">Game log descriptions use Dispatcher 1's perspective. Hands and deck order remain private.</p>{m.log.map((msg,i)=><p key={`${m.version}-${i}`}>{msg}</p>)}</div>
-      {m.winner&&<div className="online-result"><h2>{m.winner==='self'?'Victory!':'Match finished'}</h2><p>{m.winner==='self'?'Your driver reputation survived.':'The other dispatcher took this one.'} No cards or rankings change in unranked PvP.</p><button className="button primary" onClick={()=>{setState({status:'idle'});setChoice(null);setAttacker(null)}}>Return to matchmaking</button></div>}
+      {m.winner&&<div className="online-result"><h2>{m.winner==='self'?'Victory!':'Match finished'}</h2><p>{m.winner==='self'?'Your driver reputation survived.':'The other dispatcher took this one.'} No cards or rankings change in unranked PvP.</p><button className="button primary" disabled={busy} onClick={()=>void queue()}>Find another opponent</button></div>}
     </>}
   </section>
 }
