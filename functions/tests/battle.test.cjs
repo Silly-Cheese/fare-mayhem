@@ -32,7 +32,7 @@ test('computer opponent attacks human Reputation and returns the turn',()=>{
   assert.equal(result.player.reputation,previous-2)
   assert.equal(result.turn,'player')
   assert.ok(result.log.some(x=>x.includes('hit your Reputation')))
-  assert.equal(result.opponent.board[0].ready,true)
+  assert.equal(result.opponent.board[0].ready,false,'attacking driver is exhausted until its next turn')
   assert.equal(s.player.reputation,previous,'computer attack should not mutate source state')
 })
 test('computer opponent targets a legal blocker before attacking Reputation',()=>{
