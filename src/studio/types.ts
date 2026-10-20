@@ -1,6 +1,7 @@
 export type Rarity = 'standard' | 'transcendent'
 export const battleEffectOptions = [
   {value:"none",category:"Basic",label:"No additional effect",help:"No additional effect. This card relies on its normal stats."},
+  {value:"discount_self_cost_1",category:"Discount",label:"Costs 1 less Fare to play (Jim)",help:"This card costs 1 less Fare to play, to a minimum of zero. The printed cost does not change."},
   {value:"steal_fare_1",category:"Arrival",label:"Steal 1 Fare",help:"On arrival: steal up to 1 Fare from the rival."},
   {value:"steal_fare_2",category:"Arrival",label:"Steal 2 Fare",help:"On arrival: steal up to 2 Fare from the rival."},
   {value:"deal_reputation_1",category:"Arrival",label:"Deal 1 Reputation damage",help:"On arrival: deal 1 damage to enemy Reputation."},
@@ -37,7 +38,7 @@ export const battleEffectOptions = [
   {value:"turn_buff_attack_1",category:"Turn start",label:"Grow in Attack each turn",help:"At the beginning of your turn while this driver survives: gain +1 Attack (max +5 bonus)."},
 ] as const
 export type BattleEffect = (typeof battleEffectOptions)[number]['value']
-export const battleEffectCategories = ['Basic','Arrival','On attack','On defeat','Turn start'] as const
+export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start'] as const
 export type CardKind = 'driver' | 'action'
 export type CardStatus = 'draft' | 'published' | 'retired'
 export type OfficialCard = {
