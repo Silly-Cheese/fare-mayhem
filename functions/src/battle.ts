@@ -373,7 +373,7 @@ export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice|
  * then passes control back to the human. Newly dispatched units cannot attack early.
  */
 export function aiTurn(s:BattleState):BattleState{
-  if(s.turn!=='opponent'||s.winner)return s
+  if(s.turn!=='opponent'||s.winner||s.pendingReaction)return s
   let next=s
   function attackReady(){
     for(const original of [...next.opponent.board]){
@@ -411,17 +411,35 @@ export function aiTurn(s:BattleState):BattleState{
     const played=play(next,'opponent',choice.index)
     if(!played)break
     next=played
-    if(next.pendingChoice){next=chooseDiscard(next,'opponent',0)??next}
-    if(next.winner)return next
+    if(next.pendingReaction)return next // Human player must decide whether to use Nope!
+    for(let n=0;n<3&&next.pendingChoice;n++){
+      if(next.pendingChoice.kind==='third_eye_discard')next=chooseDiscard(next,'opponent',0)??next
+      else{
+        const choices=eligibleActionTargets(next,'opponent',next.pendingChoice.effect!,next.pendingChoice.first)
+        if(!choices.length)break
+        const target=choices[0]
+        next=chooseTarget(next,'opponent',target.side,target.unit.id)??next
+      }
+    }
+    if(next.pendingChoice||next.winner)return next
   }
   attackReady()
   if(next.winner)return next
   return endTurn(next)
 }
 export function applyCommand(s:BattleState,command:Command):BattleState|null{
-  if(s.turn!=='player'||s.winner)return null
+  if(s.winner)return null
+  if(s.pendingReaction){
+    if(s.pendingReaction.responder!=='player'||command.type!=='react')return null
+    let resolved=respondToAction(s,'player',command.useNope,command.index)
+    if(resolved&&resolved.turn==='opponent'&&!resolved.winner&&!resolved.pendingChoice&&!resolved.pendingReaction)resolved=aiTurn(resolved)
+    if(resolved)resolved.version=s.version+1
+    return resolved
+  }
+  if(s.turn!=='player')return null
   let next:BattleState|null=null
   if(command.type==='choose_discard')next=chooseDiscard(s,'player',command.index)
+  else if(command.type==='choose_target')next=chooseTarget(s,'player',command.targetSide,command.unitId)
   else if(command.type==='play')next=play(s,'player',command.index)
   else if(command.type==='attack')next=attack(s,'player',command.attackerId,command.targetId)
   else if(command.type==='end'&&!s.pendingChoice)next=aiTurn(endTurn(s))
@@ -429,7 +447,7 @@ export function applyCommand(s:BattleState,command:Command):BattleState|null{
   return next
 }
 /** Opponent hand and deck order never leave the backend. */
-export function publicView(s:BattleState):View{const {hand,deck,...opponent}=s.opponent;return{player:s.player,opponent:{...opponent,handCount:hand.length,deckCount:deck.length},cards:s.cards,turn:s.turn,round:s.round,winner:s.winner,log:s.log,version:s.version,pendingChoice:s.pendingChoice?.side==='player'?s.pendingChoice:undefined,revealedOpponentHand:s.pendingChoice?.side==='player'?[...hand]:undefined}}
+export function publicView(s:BattleState):View{const {hand,deck,...opponent}=s.opponent;return{player:s.player,opponent:{...opponent,handCount:hand.length,deckCount:deck.length},cards:s.cards,turn:s.turn,round:s.round,winner:s.winner,log:s.log,version:s.version,pendingChoice:s.pendingChoice?.side==='player'?s.pendingChoice:undefined,revealedOpponentHand:s.pendingChoice?.side==='player'&&s.pendingChoice.kind==='third_eye_discard'?[...hand]:undefined,pendingReaction:s.pendingReaction}}
 export function officialBattleCard(id:string,card:Record<string,unknown>):BattleCard|null{
   if(card.status!=='published'||!['driver','action'].includes(String(card.kind)))return null
   const effectKey=card.effectKey??'none'
