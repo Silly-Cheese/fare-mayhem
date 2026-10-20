@@ -1,4 +1,4 @@
-import { EFFECTS, type Effect } from './battle'
+import { EFFECTS, ACTION_ONLY_EFFECTS, type Effect } from './battle'
 export type Rarity = 'standard' | 'transcendent'
 export type SafeCard = {name:string;nickname:string;kind:'driver'|'action';rarity:Rarity;stars:number;transcendentLabel:string;cost:number;attack:number;health:number;ability:string;flavor:string;customerReview:string;edition:string;effectKey:Effect;originalUrl:string;originalStoragePath:string;cartoonUrl:string;cartoonStoragePath:string;finishedUrl:string;finishedStoragePath:string}
 function field(input: Record<string, unknown>, key: string, limit: number, required = false) {
@@ -24,6 +24,7 @@ export function validateCard(data: unknown): SafeCard {
   const effectKey:Effect = v.effectKey === undefined ? 'none' : (v.effectKey as Effect)
   if (!EFFECTS.includes(effectKey)) throw Error('Invalid playable battle effect.')
   if (kind === 'action' && (effectKey.startsWith('attack_') || effectKey.startsWith('defeat_') || effectKey.startsWith('turn_'))) throw Error('This ability trigger requires a driver card.')
+  if (kind === 'driver' && ACTION_ONLY_EFFECTS.includes(effectKey)) throw Error('That special ability requires an action card.')
   if (!['???','∞','UNRATED','☀','★6','★10'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
     name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
