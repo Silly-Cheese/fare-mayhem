@@ -7,7 +7,7 @@ const db=()=>getFirestore()
 const region='us-central1'
 const goodId=(id:unknown):id is string=>typeof id==='string'&&/^[A-Za-z0-9_-]{10,80}$/.test(id)
 const requirePlayer=(auth:{uid:string}|undefined)=>{if(!auth?.uid)throw new HttpsError('unauthenticated','Please sign in first.');return auth.uid}
-export const getCollectionDashboard=onCall({region,invoker:'public',maxInstances:6,enforceAppCheck:false},async request=>{
+export const getCollectionDashboard=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:6,enforceAppCheck:false},async request=>{
   const uid=requirePlayer(request.auth)
   const [inventory,decks,cards]=await Promise.all([
     db().collection('playerCollections').doc(uid).collection('cards').limit(200).get(),
@@ -20,7 +20,7 @@ export const getCollectionDashboard=onCall({region,invoker:'public',maxInstances
     cards:cards.docs.map(x=>({id:x.id,name:String(x.get('name')||''),nickname:String(x.get('nickname')||''),rarity:x.get('rarity'),stars:x.get('stars'),kind:x.get('kind'),imageUrl:x.get('finishedUrl')||x.get('cartoonUrl')||x.get('originalUrl')||''}))
   }
 })
-export const saveCollectionDeck=onCall({region,invoker:'public',maxInstances:4,enforceAppCheck:false},async request=>{
+export const saveCollectionDeck=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:4,enforceAppCheck:false},async request=>{
   const uid=requirePlayer(request.auth),slot=request.data?.slot,ids=request.data?.ids,name=request.data?.name
   if(!Number.isInteger(slot)||slot<1||slot>3)throw new HttpsError('invalid-argument','Choose deck slot 1, 2 or 3.')
   if(typeof name!=='string'||!name.trim()||name.length>40)throw new HttpsError('invalid-argument','Name your deck (40 characters maximum).')
