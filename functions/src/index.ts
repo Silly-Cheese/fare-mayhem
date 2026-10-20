@@ -233,3 +233,50 @@ export const grantOfficialCards = onCall({region,maxInstances:3,enforceAppCheck:
   })
   return{granted:true,recipientUid,quantity}
 })
+
+/** One-owner batch grant: distribute exactly one validated 25-card starter deck. */
+export const grantOfficialDeck = onCall({region,maxInstances:2,timeoutSeconds:60,enforceAppCheck:false},async request=>{
+  const operatorUid=await requireOwner(request.auth)
+  const email=request.data?.recipientEmail
+  if(typeof email!=='string'||email.length>254||!/^\S+@\S+\.\S+$/.test(email.trim()))
+    throw new HttpsError('invalid-argument','Enter an existing player account email.')
+  const entries=request.data?.cards
+  if(!Array.isArray(entries)||entries.length<9||entries.length>25)
+    throw new HttpsError('invalid-argument','Choose at least nine different official cards for a 25-card deck.')
+  let total=0
+  const seen=new Set<string>()
+  const chosen:{id:string;qty:number}[]=[]
+  for(const input of entries){
+    if(!input||!validId(input.id)||!Number.isInteger(input.qty)||input.qty<1||input.qty>3||seen.has(input.id))
+      throw new HttpsError('invalid-argument','Each selected card must be unique and have one to three copies.')
+    chosen.push({id:input.id,qty:input.qty})
+    seen.add(input.id);total+=input.qty
+  }
+  if(total!==25)throw new HttpsError('invalid-argument','A starter deck grant must contain exactly 25 card copies.')
+  let recipientUid:string
+  try{recipientUid=(await getAuth().getUserByEmail(email.trim())).uid}
+  catch{throw new HttpsError('not-found','Player account does not exist; register it first.')}
+  const auditRef=db.collection('inventoryGrantAudit').doc()
+  await db.runTransaction(async tx=>{
+    // All reads precede any writes, as required by Firestore transactions.
+    const snapshots=await Promise.all(chosen.map(async c=>{
+      const [card,owned]=await Promise.all([
+        tx.get(db.doc(`cards/${c.id}`)),tx.get(db.doc(`playerCollections/${recipientUid}/cards/${c.id}`))
+      ])
+      return{...c,card,owned}
+    }))
+    for(const item of snapshots){
+      if(!item.card.exists||item.card.get('status')!=='published')
+        throw new HttpsError('failed-precondition','The selected deck contains an unpublished card.')
+      if(Number(item.owned.get('quantity')||0)+item.qty>999)
+        throw new HttpsError('failed-precondition','The recipient reached the inventory limit.')
+    }
+    for(const item of snapshots){
+      const ref=db.doc(`playerCollections/${recipientUid}/cards/${item.id}`)
+      tx.set(ref,{quantity:Number(item.owned.get('quantity')||0)+item.qty,updatedAt:FieldValue.serverTimestamp()},{merge:true})
+      tx.set(db.doc(`issuedCardRegistry/${item.id}`),{everIssued:true,lastIssuedAt:FieldValue.serverTimestamp()},{merge:true})
+    }
+    tx.create(auditRef,{operatorUid,recipientUid,cards:chosen,action:'owner-starter-deck-grant',createdAt:FieldValue.serverTimestamp()})
+  })
+  return{granted:true,quantity:25,uniqueCards:chosen.length}
+})
