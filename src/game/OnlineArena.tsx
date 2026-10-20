@@ -10,9 +10,9 @@ type Driver={id:string;name:string;nickname:string;kind:'driver'|'action';cost:n
 type Unit={id:string;cardId:string;hp:number;ready:boolean}
 type Self={reputation:number;fare:number;maxFare:number;deck:string[];hand:string[];board:Unit[];fatigue:number}
 type Rival={reputation:number;fare:number;maxFare:number;board:Unit[];handCount:number;deckCount:number}
-type View={self:Self;rival:Rival;cards:Record<string,Driver>;turn:'self'|'rival';winner:'self'|'rival'|null;round:number;version:number;log:string[]}
+type View={self:Self;rival:Rival;cards:Record<string,Driver>;turn:'self'|'rival';winner:'self'|'rival'|null;round:number;version:number;log:string[];pendingChoice?:{side:'player'|'opponent';kind:'third_eye_discard'};revealedOpponentHand?:string[]}
 type Status={status:'idle'|'waiting'|'matched';joinedAtMs?:number;matchId?:string;role?:string;view?:View;turnDeadlineMs?:number}
-type Action={type:'end'|'forfeit'}|{type:'play';index:number}|{type:'attack';attackerId:string;targetId?:string}
+type Action={type:'choose_discard';index:number}|{type:'end'|'forfeit'}|{type:'play';index:number}|{type:'attack';attackerId:string;targetId?:string}
 const join=httpsCallable<{deckSlot:number},{status:string;matchId?:string}>(functions,'joinPvpQueue',{timeout:110000})
 const leave=httpsCallable<Record<string,never>,{left:boolean}>(functions,'leavePvpQueue')
 const statusCall=httpsCallable<Record<string,never>,Status>(functions,'getPvpStatus')
@@ -80,7 +80,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
     finally{setBusy(false)}
   }
   if(!user)return <section className="page-content online-page"><span className="eyebrow"><Users size={16}/> PHASE 05 · ONLINE MATCHES</span><h1>Fight another dispatcher.</h1><p>Sign in to find another player and compete using your verified card collection.</p><button className="button primary" onClick={onRequireSignIn}>Sign in to battle <ArrowRight size={17}/></button></section>
-  const m=state.view,canAct=m?.turn==='self'&&!m?.winner
+  const m=state.view,canAct=m?.turn==='self'&&!m?.winner&&!m?.pendingChoice
   return <section className="page-content online-page page-enter">
     <div className="online-heading"><div><span className="eyebrow"><Radio size={16}/> PHASE 05 · LIVE DISPATCH</span><h1>Online Arena<span className="punctuation">.</span></h1><p>Unranked online matches. Official, player-owned decks only. Each move is verified by the server.</p></div><button className="button outline" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={17}/> Refresh</button></div>
     {error&&<p className="studio-warning" role="alert">{error}</p>}
@@ -89,6 +89,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
     {state.status==='waiting'&&<div className="online-lobby"><LoaderCircle size={43} className="spin"/><h2>Waiting for another dispatcher…</h2><p>Keep this page open. Another signed-in player with a complete saved deck must join. We'll check automatically every 10 seconds.</p><button className="button outline" disabled={busy} onClick={()=>void cancel()}>Leave queue</button><p className="online-hint">Queue reservations expire after five minutes. If it expires, you can join again.</p></div>}
     {state.status==='matched'&&m&&<><div className="online-matchbar"><span><ShieldCheck size={17}/> Verified multiplayer</span><span><Clock3 size={16}/> {m.winner?'Finished':m.turn==='self'?'Your turn':'Opponent’s turn'}</span><span>Round {m.round} · Revision {m.version}</span></div>
       <div className="online-score"><div><strong>RIVAL DISPATCHER</strong><b><Heart size={16}/>{m.rival.reputation} Reputation</b><small>{m.rival.handCount} hidden cards · {m.rival.deckCount} in deck</small></div><div><strong>YOU</strong><b><Heart size={16}/>{m.self.reputation} Reputation</b><small>{m.self.fare} / {m.self.maxFare} Fare · {m.self.deck.length} in deck</small></div></div>
+      {m.pendingChoice&&<section className="collection-info" aria-label="Third-Eye ability"><h3>Third-Eye: select a card from your opponent’s hand</h3><p>Your arrival ability revealed the opposing hand. Select one card to discard.</p><div className="online-controls">{(m.revealedOpponentHand||[]).map((id,index)=><button type="button" className="button outline" key={index} disabled={busy} onClick={()=>void move({type:'choose_discard',index})}>{m.cards[id]?.name||'Opponent card'} · discard</button>)}</div></section>}
       <div className="online-battlefield"><h3>Opponent's road</h3><div className="online-cardrow">{[0,1,2].map(i=>{const u=m.rival.board[i];return u?<Piece key={u.id} card={m.cards[u.cardId]} unit={u} active={!!attacker} disabled={!attacker||busy||!canAct} select={()=>attacker&&void move({type:'attack',attackerId:attacker,targetId:u.id})}/>:<div key={i} className="online-empty">Empty lane</div>})}</div>
         <p className="online-turn-note">{m.winner?(m.winner==='self'?'You won the match!':'Your opponent won the match.'):canAct?'Your dispatch is open. Play a card, attack, or finish your turn.':'Waiting for your opponent to act. Game state refreshes automatically.'}</p>
         <h3>Your road</h3><div className="online-cardrow">{[0,1,2].map(i=>{const u=m.self.board[i];return u?<Piece key={u.id} card={m.cards[u.cardId]} unit={u} active={attacker===u.id} disabled={!u.ready||busy||!canAct} select={()=>{setAttacker(attacker===u.id?null:u.id);setChoice(null)}}/>:<div key={i} className="online-empty">Empty lane</div>})}</div></div>
