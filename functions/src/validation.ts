@@ -22,6 +22,7 @@ export function validateCard(data: unknown): SafeCard {
   const transcendentLabel = field(v,'transcendentLabel',12)
   const effectKey:Effect = v.effectKey === undefined ? 'none' : (v.effectKey as Effect)
   if (!EFFECTS.includes(effectKey)) throw Error('Invalid playable battle effect.')
+  if (kind === 'action' && (effectKey.startsWith('attack_') || effectKey.startsWith('defeat_') || effectKey.startsWith('turn_'))) throw Error('This ability trigger requires a driver card.')
   if (!['???','∞','UNRATED'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
     name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
