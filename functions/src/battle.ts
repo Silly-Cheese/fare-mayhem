@@ -22,13 +22,15 @@ const TRAINING_DECK=[...Array(3).fill('orb'),...Array(3).fill('detour'),...Array
 export const trainingCards = () => ({...SC})
 function shuffle<T>(input:T[],random:()=>number):T[]{const a=[...input];for(let i=a.length-1;i>0;i--){const j=Math.min(i,Math.max(0,Math.floor(random()*(i+1))));[a[i],a[j]]=[a[j],a[i]]}return a}
 function createFighter(deck:string[],random:()=>number):Fighter{const cards=shuffle(deck,random);return{reputation:20,fare:1,maxFare:1,deck:cards.slice(5),hand:cards.slice(0,5),board:[],fatigue:0}}
-export function createBattle(published:BattleCard[],random:()=>number=Math.random,ownedCardIds?:string[]):BattleState{
+export function createBattle(published:BattleCard[],random:()=>number=Math.random,ownedCardIds?:string[],opponentOwnedIds?:string[]):BattleState{
   const cards=trainingCards();const deck=[...TRAINING_DECK]
-  const eligible=published.filter(c=>c.source==='official'&&EFFECTS.includes(c.effect)&&c.cost>=0&&c.cost<=10).slice(0,ownedCardIds?200:8)
+  const eligible=published.filter(c=>c.source==='official'&&EFFECTS.includes(c.effect)&&c.cost>=0&&c.cost<=10).slice(0,ownedCardIds||opponentOwnedIds?200:8)
   eligible.forEach((card,i)=>{const id=`official_${card.id}`;cards[id]={...card,id};if(!ownedCardIds&&i<8)deck[i*3]=id})
   const playerDeck=ownedCardIds ? ownedCardIds.map(id=>`official_${id}`) : deck
+  const opposingDeck=opponentOwnedIds ? opponentOwnedIds.map(id=>`official_${id}`) : deck
   if(ownedCardIds&&(ownedCardIds.length!==25||playerDeck.some(id=>!cards[id])))throw Error('Invalid owned practice deck.')
-  return{player:createFighter(playerDeck,random),opponent:createFighter(deck,random),cards,turn:'player',round:1,winner:null,log:[ownedCardIds?'Your collection deck is on the road.':'Dispatch is open. Twenty Reputation each. Make it count.'],nextId:1,version:1}
+  if(opponentOwnedIds&&(opponentOwnedIds.length!==25||opposingDeck.some(id=>!cards[id])))throw Error('Invalid opposing collection deck.')
+  return{player:createFighter(playerDeck,random),opponent:createFighter(opposingDeck,random),cards,turn:'player',round:1,winner:null,log:[opponentOwnedIds?'Two players matched. Twenty Reputation each.':'Dispatch is open. Twenty Reputation each. Make it count.'],nextId:1,version:1}
 }
 function clone(s:BattleState):BattleState{return structuredClone(s)}
 function log(s:BattleState,text:string){s.log=[text,...s.log].slice(0,24)}
