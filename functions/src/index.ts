@@ -84,6 +84,10 @@ function checkCommand(data: unknown): Command {
   const d=data as Record<string,unknown>
   if(d.type==='end') return {type:'end'}
   if(d.type==='choose_discard' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'choose_discard',index:d.index as number}
+  if(d.type==='choose_target'&&typeof d.unitId==='string'&&/^unit-\d{1,7}$/.test(d.unitId)&& (d.targetSide==='player'||d.targetSide==='opponent'))
+    return {type:'choose_target',unitId:d.unitId,targetSide:d.targetSide}
+  if(d.type==='react'&&typeof d.useNope==='boolean'&&(!d.useNope||(Number.isInteger(d.index)&&Number(d.index)>=0&&Number(d.index)<8)))
+    return {type:'react',useNope:d.useNope,index:d.index as number | undefined}
   if(d.type==='play' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'play',index:d.index as number}
   if(d.type==='attack' && typeof d.attackerId==='string' && /^unit-\d{1,7}$/.test(d.attackerId)
      && (d.targetId===undefined || (typeof d.targetId==='string' && /^unit-\d{1,7}$/.test(d.targetId))))
