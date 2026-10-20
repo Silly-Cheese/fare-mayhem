@@ -6,7 +6,7 @@ import { ArrowRight, Clock3, Heart, LoaderCircle, Radio, RefreshCw, ShieldCheck,
 import { backendError } from './backendErrors'
 import './online.css'
 
-type Driver={id:string;name:string;nickname:string;kind:'driver'|'action';cost:number;attack:number;health:number;effect:string;imageUrl:string;rating:string;source:string}
+type Driver={id:string;name:string;nickname:string;kind:'driver'|'action';cost:number;attack:number;health:number;effect:string;imageUrl:string;fullCard?:boolean;rating:string;source:string}
 type Unit={id:string;cardId:string;hp:number;ready:boolean}
 type Self={reputation:number;fare:number;maxFare:number;deck:string[];hand:string[];board:Unit[];fatigue:number}
 type Rival={reputation:number;fare:number;maxFare:number;board:Unit[];handCount:number;deckCount:number}
@@ -22,11 +22,13 @@ const historyCall=httpsCallable<Record<string,never>,{matches:PastMatch[]}>(func
 const explain=(error:unknown)=>backendError(error,'Online PvP')
 function Piece({card,unit,select,active,disabled}:{card?:Driver;unit?:Unit;select?:()=>void;active?:boolean;disabled?:boolean}){
   if(!card)return <span className="online-empty">UNAVAILABLE CARD</span>
-  return <button type="button" className={`online-piece ${active?'selected':''}`} disabled={disabled||!select} onClick={select}>
-    <span className="online-piece-cost"><Zap size={12}/>{card.cost}</span>
-    <span className="online-piece-image">{card.imageUrl?<img loading="lazy" alt="" src={card.imageUrl}/>:<span>🚕</span>}</span>
-    <b>{card.name}</b><small>{card.nickname||card.kind} · {card.effect.replaceAll('_',' ')}</small>
-    <span className="online-piece-power"><Swords size={12}/>{card.attack} <Heart size={12}/>{unit?.hp??card.health}{unit&&<em>{unit.ready?'Ready':'Waiting'}</em>}</span>
+  return <button type="button" className={`online-piece ${active?'selected':''} ${card.fullCard?'full-print':''}`} disabled={disabled||!select} onClick={select}>
+    {card.fullCard&&card.imageUrl?<><img className="online-full-print-image" src={card.imageUrl} loading="lazy" alt={`Complete ${card.name} card`}/>{unit&&<span className="online-live-hp"><Heart size={11}/>{unit.hp} HP · {unit.ready?'READY':'WAIT'}</span>}</>:<>
+      <span className="online-piece-cost"><Zap size={12}/>{card.cost}</span>
+      <span className="online-piece-image">{card.imageUrl?<img loading="lazy" alt="" src={card.imageUrl}/>:<span>🚕</span>}</span>
+      <b>{card.name}</b><small>{card.nickname||card.kind} · {card.effect.replaceAll('_',' ')}</small>
+      <span className="online-piece-power"><Swords size={12}/>{card.attack} <Heart size={12}/>{unit?.hp??card.health}{unit&&<em>{unit.ready?'Ready':'Waiting'}</em>}</span>
+    </>}
   </button>
 }
 export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSignIn:()=>void}){
