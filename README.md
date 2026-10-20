@@ -1,4 +1,4 @@
-# FARE MAYHEM — Phase 5
+# FARE MAYHEM — Phase 6
 
 **Five stars. Zero guarantees.** An original, cartoon-styled rideshare-driver trading card game. Phase 1 is a *functional training game*, not a multiplayer or collectible-card economy.
 
@@ -236,3 +236,57 @@ firebase.cmd functions:list
 ```
 
 Cloud Functions still cost Google Cloud/Firebase Blaze usage. Do not weaken rules or make inventory publicly writable to "fix" a callable CORS error. Verify Functions are deployed and inspect their logs instead. Before inviting a large public audience, perform manual multi-account integration tests and enable App Check, monitoring, rate limits and suitable billing alerts.
+
+---
+
+## Phase 6 — Death-style finished cards & expanded special abilities
+
+### Option B: finished cards, one at a time
+
+The official finished-card reference is the owner's **Death** card at **1060 × 1484** (exactly 5:7 portrait). Owner access is required to upload. In Card Studio:
+
+1. Create a card and enter its name and game attributes.
+2. Open **Artwork & full cards**.
+3. Upload a complete PNG, JPG, or WebP card under **Option B · Complete card upload**. Files must be 5:7 portrait, at least **700 × 980**, and under **8 MB**.
+4. The complete image (including border, rating, artwork, text and stat badges) is displayed intact in Card Studio, public Driver Records, My Collection, Secure Practice and Online PvP, without wrapping it in another card frame.
+5. Publish only after checking that the printed stats and ability agree with your structured game metadata.
+
+Legacy cards with individual original/cartoon illustrations still use the original website-generated frame. Uploading a complete image does not attempt OCR or recolor/restyle its artwork.
+
+### Option B: mass-import finished images, no spreadsheet needed
+
+In **Card Studio → Bulk Import → Upload finished cards**, choose **1–50 full-card images in one batch**. The uploader:
+
+- checks image type, size and 5:7 proportions before upload
+- previews each image and derives a suggested name from its filename
+- allows per-card review of type, 1–5 stars or transcendent rating, Fare cost, Attack, Health, edition, one of the 35 playable effects, and printed ability text
+- detects known duplicate name/edition pairs and does not silently overwrite old cards
+- uploads each valid card independently, keeping its full design intact
+- saves **private drafts only**; there is no automatic publishing from this workflow
+- shows a separate success or error message for every card
+
+The older **CSV / JSON with artwork** mode remains available. Its rows may now include `finishedFile` to associate an entire finished-card image with a card's structured attributes. Do not put the printed card text in a separate cartoon illustration expecting automatic rendering: `finishedFile` is the preferred complete card image.
+
+### 35 playable abilities
+
+Card Studio now groups 35 actual battle-engine effects under **Basic**, **Arrival**, **On attack**, **On defeat**, and **Turn start**. New effects include extra Fare/reputation values, damage to all enemy drivers, shield, stun, forced discard, allied healing and buffs, draw on attack, healing on attack, revenge effects on defeat, and start-of-turn income/healing/growth.
+
+These effects run on the server during both secure practice and online PvP. Action cards cannot choose driver-only attack, defeat or turn-start triggers. Previous eight effect types remain compatible with existing cards. The written/printed ability description is not itself executable: **the selected effect must match the physical text of the finished card**. Existing matches use their previously saved card snapshots.
+
+### Firebase deployment required
+
+GitHub Pages deploys the website only. To activate finished-card Storage uploads, card validation, and new game rules, open PowerShell:
+
+```powershell
+cd "C:\Users\Owner\Documents\fare-mayhem"
+git status --short
+git pull --ff-only origin main
+npm.cmd --prefix functions install
+npm.cmd --prefix functions run test
+firebase.cmd use fare-mayhem
+firebase.cmd deploy --only storage
+firebase.cmd deploy --only functions
+```
+
+The Functions deployment automatically compiles fresh TypeScript via its predeploy build. No OpenAI API subscription, API key, or image generation charge is required by this implementation. Firebase's usage-based cloud billing is separate. Test a finished image upload, publishing, special effects, and a practice match **before** distributing cards.
+
