@@ -85,7 +85,7 @@ async function timedSnapshot(id:string,uid:string){
     const data=current.get('state') as BattleState
     const deadline=Number(current.get('turnDeadlineMs')||0)
     if(data.winner||Date.now()<deadline)return
-    const winner:Side=data.turn==='player'?'opponent':'player'
+    const winner:Side=data.pendingReaction?.actor??(data.turn==='player'?'opponent':'player')
     const finishedAtMs=Date.now()
     tx.update(ref,{state:{...data,winner,version:data.version+1,log:['Time expired. The other dispatcher wins by forfeit.',...data.log].slice(0,24)},finishedAtMs,turnDeadlineMs:0,updatedAtMs:finishedAtMs})
     writePvpHistory(tx,id,current.get('firstUid'),current.get('secondUid'),winner,data.round,finishedAtMs)
@@ -178,7 +178,7 @@ export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concur
     const now=Date.now()
     let next:BattleState|null=null
     if(now>=Number(snap.get('turnDeadlineMs')||0)){
-      next={...current,winner:current.turn==='player'?'opponent':'player',version:current.version+1,log:['The turn timed out.',...current.log].slice(0,24)}
+      next={...current,winner:current.pendingReaction?.actor??(current.turn==='player'?'opponent':'player'),version:current.version+1,log:['The decision window timed out.',...current.log].slice(0,24)}
     }else if(action.type==='forfeit'){
       next={...current,winner:side==='player'?'opponent':'player',version:current.version+1,log:['A dispatcher forfeited.',...current.log].slice(0,24)}
     }else{
