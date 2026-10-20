@@ -1,5 +1,9 @@
 # FARE MAYHEM — Phase 6
 
+**Official website: https://fare-mayhem.com/**
+
+**New custom domain:** Follow [DOMAIN_SETUP_SQUARESPACE.md](./DOMAIN_SETUP_SQUARESPACE.md) for the one-time GitHub Pages custom-domain setting, Squarespace DNS, HTTPS, and Firebase Authentication authorized-domain configuration. The production build now uses a root `/` base with a root-scope PWA. No Firebase Functions or database migration is necessary for this URL change.
+
 **Five stars. Zero guarantees.** An original, cartoon-styled rideshare-driver trading card game. Phase 1 is a *functional training game*, not a multiplayer or collectible-card economy.
 
 ## Shipped
@@ -19,20 +23,20 @@ npm run test
 npm run dev
 ```
 
-For a production bundle: `npm run build` (outputs `dist/`). Vite's base path is `/fare-mayhem/` for GitHub Pages.
+For a production bundle: `npm run build` (outputs `dist/`). Vite's production base path is `/` for the official custom domain.
 
 ## Activate live hosting
 
 1. GitHub repository **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 2. Push to `main` (or manually run the *Build and deploy Fare Mayhem* workflow in Actions). Check workflow status before sharing a live link.
-3. Your expected URL *after a successful deployment* is `https://silly-cheese.github.io/fare-mayhem/`.
+3. Open repository **Settings → Pages → Custom domain**, enter `fare-mayhem.com`, and save **before** configuring DNS in Squarespace. The intended live address is `https://fare-mayhem.com/`; GitHub handles redirects from its prior Pages URL once the domain works.
 
 ## Activate Firebase Authentication
 
 Firebase project: `fare-mayhem`.
 
 1. Firebase Console → **Authentication → Get started → Sign-in method**. Enable **Email/Password** and optionally **Google** (configure Google support email).
-2. Authentication → **Settings → Authorized domains**. Add `silly-cheese.github.io` (without `https://` and without `/fare-mayhem/`).
+2. Authentication → **Settings → Authorized domains**. Add `fare-mayhem.com` (without `https://`). Retain `silly-cheese.github.io` if needed during the transition, and add `www.fare-mayhem.com` if visiting that hostname directly.
 3. Firebase Console → **Firestore Database**. Create a database if not already created.
 4. Paste `firestore.rules` into **Firestore → Rules** and **Publish**. The rule set allows only individual account profiles; all other collections are denied. For Phase 2, expand with explicit admin role authorization *before* enabling a card publisher.
 5. If using Firebase Storage, publish `storage.rules` while there is no admin upload feature, so browser uploads are denied for now.
