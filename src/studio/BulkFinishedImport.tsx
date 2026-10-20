@@ -4,11 +4,6 @@ import {battleEffectCategories,battleEffectOptions,initialCard,type EditableCard
 import {saveOfficialCard,uploadArtwork,validateFinishedCardImage} from './api'
 
 type Item={key:string;file:File;card:EditableCard;valid:boolean;message:string}
-const originalMetadata:Record<string,Partial<EditableCard>> = {
-  "jim":{effectKey:"jim_boring_reputation_1_and_untargetable",ability:"On arrival: gain 1 Reputation. Opposing abilities cannot target Jim until your next turn."},
-  "george williamson":{effectKey:"george_polite_rep_2_discount_1",ability:"On arrival: gain 2 Reputation. Your next Driver costs 1 less Fare."},
-  "fish boy":{effectKey:"fish_boy_slipstream_shield_2",ability:"On arrival: gain 1 Fare and shield this Driver from the next 2 damage."},
-}
 const nameFromFile=(filename:string)=>filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().slice(0,70)
 const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,card:{...item.card,[key]:value}})
 /** Reviewed suggestions for cards whose printed effect is legible in the sample.
