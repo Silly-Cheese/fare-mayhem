@@ -8,6 +8,6 @@ export type SecureCommand = {type:'choose_target';unitId:string;targetSide:'play
 const start=httpsCallable<{restart?:boolean;deckSlot?:number},{match:SecureMatch;resumed:boolean}>(functions,'startPracticeMatch')
 const load=httpsCallable<Record<string,never>,{match:SecureMatch}>(functions,'getPracticeMatch')
 const act=httpsCallable<{version:number;action:SecureCommand},{match:SecureMatch}>(functions,'takePracticeAction')
-export const beginPractice=async(restart=false,deckSlot?:number)=>(await start({restart,deckSlot})).data
+export const beginPractice=async(restart=false,deckSlot?:number)=>(await start(deckSlot===undefined?{restart}:{restart,deckSlot})).data
 export const loadPractice=async()=>(await load({})).data.match
 export const practiceMove=async(version:number,action:SecureCommand)=>(await act({version,action})).data.match
