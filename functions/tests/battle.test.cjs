@@ -57,3 +57,20 @@ test('computer opponent cannot attack with a newly dispatched driver',()=>{
   assert.equal(result.player.reputation,20)
   assert.equal(result.opponent.board.length,1)
 })
+
+test('Phase 5 matches two private 25-card official decks without using demo cards',()=>{
+  const original=Array.from({length:9},(_,i)=>officialBattleCard('realleased'+i,{
+    status:'published',kind:'driver',name:'Original driver '+i,nickname:'',cost:1,
+    attack:2,health:3,rarity:'standard',stars:2,effectKey:'none'
+  }))
+  const deck=original.flatMap((c,i)=>Array(i===8?1:3).fill(c.id))
+  const battle=createBattle(original,()=>0.4,deck,deck)
+  assert.equal(battle.mode,'pvp')
+  assert.equal(battle.player.hand.length+battle.player.deck.length,25)
+  assert.equal(battle.opponent.hand.length+battle.opponent.deck.length,25)
+  assert.ok(battle.player.hand.concat(battle.player.deck).every(id=>id.startsWith('official_')))
+  assert.ok(battle.opponent.hand.concat(battle.opponent.deck).every(id=>id.startsWith('official_')))
+  const after=endTurn(battle)
+  assert.equal(after.turn,'opponent')
+  assert.ok(after.log[0].includes('Dispatcher 2'))
+})
