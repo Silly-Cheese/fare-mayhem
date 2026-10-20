@@ -194,3 +194,5 @@ export const deleteOfficialCard = onCall({region,maxInstances:2,timeoutSeconds:6
 })
 
 export { getCollectionDashboard, saveCollectionDeck } from './collection'
+
+export { listTradeOffers, createTradeOffer, respondTradeOffer } from './trades'
