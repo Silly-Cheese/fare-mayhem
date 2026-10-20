@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { ArrowRight, Check, ChevronDown, Layers3, LoaderCircle, Plus, RefreshCw, ShieldCheck, Star, Trash2 } from 'lucide-react'
+import { TradeDesk } from './TradeDesk'
 import './collection.css'
 
 type Card={id:string;name:string;nickname:string;rarity:string;stars:number;kind:string;imageUrl:string}
@@ -13,7 +14,7 @@ const saveDeck=httpsCallable<{slot:number;name:string;ids:string[]},{saved:boole
 export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onRequireSignIn:()=>void;onPlay:(slot:number)=>void}){
   const [data,setData]=useState<Collection|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false),[slot,setSlot]=useState(1),[name,setName]=useState('My first dispatch'),[ids,setIds]=useState<string[]>([])
-  const [tab,setTab]=useState<'collection'|'decks'>('collection')
+  const [tab,setTab]=useState<'collection'|'decks'|'trades'>('collection')
   async function refresh(){if(!user)return;setBusy(true);setError('');try{const value=(await loadCollection({})).data;setData(value)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
   useEffect(()=>{setData(null);setIds([]);if(user)void refresh()},[user?.uid])
   function pickSlot(n:number){setSlot(n);const saved=data?.decks.find(x=>x.slot===n);setIds(saved?.ids||[]);setName(saved?.name||`Dispatch Deck ${n}`)}
@@ -29,8 +30,9 @@ export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onR
   return <div className="page-content collection-page page-enter">
     <div className="collection-heading"><div><span className="eyebrow"><ShieldCheck size={15}/> PHASE 04 · VERIFIED OWNERSHIP</span><h1>My Collection<span className="punctuation">.</span></h1><p>Only cards awarded by the trusted game server or received through a verified trade belong to you. Published cards alone don't give you ownership.</p></div><button className="button outline" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={17}/> Refresh</button></div>
     <div className="collection-summary"><div><b>{total}</b><span>Owned card copies</span></div><div><b>{owned.length}</b><span>Different cards</span></div><div><b>{data?.decks.length||0}/3</b><span>Saved decks</span></div></div>
-    <div className="collection-switch"><button className={tab==='collection'?'active':''} onClick={()=>setTab('collection')}><Layers3 size={17}/> Owned cards</button><button className={tab==='decks'?'active':''} onClick={()=>setTab('decks')}><Star size={17}/> Deck builder</button></div>
+    <div className="collection-switch"><button className={tab==='collection'?'active':''} onClick={()=>setTab('collection')}><Layers3 size={17}/> Owned cards</button><button className={tab==='decks'?'active':''} onClick={()=>setTab('decks')}><Star size={17}/> Deck builder</button><button className={tab==='trades'?'active':''} onClick={()=>setTab('trades')}><Layers3 size={17}/> Trading</button></div>
     {error&&<p className="studio-warning" role="alert">{error}</p>}
+    {data&&tab==='trades'&&<TradeDesk uid={user.uid} cards={data.cards} inventory={data.inventory} refreshCollection={refresh}/>}
     {notice&&<p className="studio-success" role="status"><Check size={17}/> {notice}</p>}
     {busy&&!data&&<p className="collection-empty"><LoaderCircle size={21} className="spin"/> Loading collection…</p>}
     {data&&tab==='collection'&&<><div className="collection-info"><h2>Earn your next driver</h2><p>Win a Secure Practice match to earn up to one random published official card every 24 hours. Rewards only become available after the owner publishes original characters into the registry. Local training battles don't award cards.</p></div>
