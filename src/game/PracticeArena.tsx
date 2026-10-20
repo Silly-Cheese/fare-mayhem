@@ -8,13 +8,15 @@ import { backendError } from './backendErrors'
 import './practice.css'
 const errorText = (error:unknown) => backendError(error,'Secure Practice')
 function GamePiece({card,unit,onClick,selected,disabled=false}:{card:Driver;unit?:Unit;onClick?:()=>void;selected?:boolean;disabled?:boolean}){
-  return <button type="button" disabled={disabled||!onClick} onClick={onClick} className={`practice-card ${selected?'selected':''} ${unit?.ready?'ready':''} ${card.source==='official'?'official':''}`} title={`${card.name} — ${card.effect}`}>
-    <span className="practice-card-top"><b>{card.name}</b><span>{card.cost} <Zap size={11}/></span></span>
-    <span className="practice-card-art">{card.imageUrl?<img loading="lazy" src={card.imageUrl} alt=""/>:<span aria-hidden="true">{card.kind==='action'?'✦':'🚕'}</span>}</span>
-    <span className="practice-card-title">{card.nickname||card.kind.toUpperCase()}</span>
-    <span className="practice-card-effect">{card.effect==='none'?'No additional effect':card.effect.replaceAll('_',' ')}</span>
-    <span className="practice-card-stats"><span><Swords size={12}/>{card.attack}</span><span><Heart size={12}/>{unit?.hp??card.health}</span></span>
-    {unit&&<span className="practice-status">{unit.ready?'READY':'WAITING'}</span>}
+  return <button type="button" disabled={disabled||!onClick} onClick={onClick} className={`practice-card ${selected?'selected':''} ${unit?.ready?'ready':''} ${card.source==='official'?'official':''} ${card.fullCard?'full-print':''}`} title={`${card.name} — ${card.effect}`}>
+    {card.fullCard&&card.imageUrl?<><img className="practice-full-print-image" src={card.imageUrl} loading="lazy" alt={`Complete ${card.name} card`}/>{unit&&<span className="practice-live-hp"><Heart size={11}/>{unit.hp} HP · {unit.ready?'READY':'WAIT'}</span>}</>:<>
+      <span className="practice-card-top"><b>{card.name}</b><span>{card.cost} <Zap size={11}/></span></span>
+      <span className="practice-card-art">{card.imageUrl?<img loading="lazy" src={card.imageUrl} alt=""/>:<span aria-hidden="true">{card.kind==='action'?'✦':'🚕'}</span>}</span>
+      <span className="practice-card-title">{card.nickname||card.kind.toUpperCase()}</span>
+      <span className="practice-card-effect">{card.effect==='none'?'No additional effect':card.effect.replaceAll('_',' ')}</span>
+      <span className="practice-card-stats"><span><Swords size={12}/>{card.attack}</span><span><Heart size={12}/>{unit?.hp??card.health}</span></span>
+      {unit&&<span className="practice-status">{unit.ready?'READY':'WAITING'}</span>}
+    </>}
   </button>
 }
 export function PracticeArena({user,onRequireSignIn,deckSlot}:{user:User|null;onRequireSignIn:()=>void;deckSlot?:number}){
