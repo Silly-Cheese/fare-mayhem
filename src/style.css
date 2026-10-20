@@ -6,3 +6,7 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 .owner-top-button{font-size:11px;padding:9px 11px!important}.records-page .published-fleet .searchbox{margin-bottom:22px}@media(max-width:620px){.owner-top-button{padding:8px!important;font-size:10px!important}.owner-top-button svg{display:none}}
+
+/* Phase 5 mobile header and fixed 5-item navigation */
+@media(max-width:850px){.mobile-bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr));align-items:center}.mobile-bottom-nav button{min-width:0;min-height:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;gap:3px}.mobile-bottom-nav button span{max-width:100%;overflow:hidden;text-overflow:ellipsis}.topbar{gap:10px}.topbar-breadcrumb{min-width:0;flex:1;overflow:hidden}.topbar-breadcrumb>b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topbar-right{flex:0 0 auto}}
+@media(max-width:620px){.mobile-bottom-nav{padding:7px 5px calc(7px + env(safe-area-inset-bottom))}.mobile-bottom-nav button{font-size:10px;padding:6px 1px}.mobile-bottom-nav button svg{width:19px;height:19px}.topbar{gap:6px}.topbar-right{gap:3px}.owner-top-button{font-size:10px;padding:7px 8px!important}.topbar-breadcrumb>b{font-size:11px}.page-content{padding-bottom:105px}}
