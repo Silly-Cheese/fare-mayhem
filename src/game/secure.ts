@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
-export type Driver = {id:string;name:string;nickname:string;kind:'driver'|'action';cost:number;attack:number;health:number;effect:string;imageUrl:string;rating:string;source:'training'|'official'}
+export type Driver = {id:string;name:string;nickname:string;kind:'driver'|'action';cost:number;attack:number;health:number;effect:string;imageUrl:string;fullCard?:boolean;rating:string;source:'training'|'official'}
 export type Unit = {id:string;cardId:string;hp:number;ready:boolean}
 export type Fighter = {reputation:number;fare:number;maxFare:number;deck:string[];hand:string[];board:Unit[];fatigue:number}
 export type SecureMatch = {player:Fighter;opponent:Omit<Fighter,'hand'|'deck'> & {handCount:number;deckCount:number};cards:Record<string,Driver>;turn:'player'|'opponent';round:number;winner:'player'|'opponent'|null;log:string[];version:number}
