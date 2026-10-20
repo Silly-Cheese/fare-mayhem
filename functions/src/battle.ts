@@ -146,7 +146,7 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
   checkWinner(next)
   return next
 }
-export function endTurn(s:BattleState):BattleState{if(s.winner)return s;const next=clone(s),incoming:Side=next.turn==='player'?'opponent':'player';next.turn=incoming;if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns!--}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
+export function endTurn(s:BattleState):BattleState{if(s.winner)return s;const next=clone(s),incoming:Side=next.turn==='player'?'opponent':'player';next.turn=incoming;if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
 /**
  * Dispatch AI takes a full, server-authoritative turn.
  * It attacks with ready units, spends Fare, attacks with any remaining ready units,
