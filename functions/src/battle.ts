@@ -375,6 +375,18 @@ export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice|
 export function aiTurn(s:BattleState):BattleState{
   if(s.turn!=='opponent'||s.winner||s.pendingReaction)return s
   let next=s
+  // If an AI Action was paused for a human Nope reaction, resolve its target choice
+  // before the AI resumes normal play.
+  for(let n=0;n<3&&next.pendingChoice?.side==='opponent';n++){
+    if(next.pendingChoice.kind==='third_eye_discard')next=chooseDiscard(next,'opponent',0)??next
+    else{
+      const choices=eligibleActionTargets(next,'opponent',next.pendingChoice.effect!,next.pendingChoice.first)
+      if(!choices.length)break
+      const target=choices[0]
+      next=chooseTarget(next,'opponent',target.side,target.unit.id)??next
+    }
+  }
+  if(next.pendingChoice)return next
   function attackReady(){
     for(const original of [...next.opponent.board]){
       const unit=next.opponent.board.find(x=>x.id===original.id)
@@ -432,7 +444,7 @@ export function applyCommand(s:BattleState,command:Command):BattleState|null{
   if(s.pendingReaction){
     if(s.pendingReaction.responder!=='player'||command.type!=='react')return null
     let resolved=respondToAction(s,'player',command.useNope,command.index)
-    if(resolved&&resolved.turn==='opponent'&&!resolved.winner&&!resolved.pendingChoice&&!resolved.pendingReaction)resolved=aiTurn(resolved)
+    if(resolved&&resolved.turn==='opponent'&&!resolved.winner&&!resolved.pendingReaction)resolved=aiTurn(resolved)
     if(resolved)resolved.version=s.version+1
     return resolved
   }
