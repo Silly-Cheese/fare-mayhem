@@ -43,7 +43,7 @@ export function parseCards(text:string,name:string):Entry[]{
       edition:clean(r.edition||'First Edition'),
       effectKey:clean(r.effectKey||'none') as EditableCard['effectKey']
     }
-    if(!card.name||card.name.length>70||!card.ability||card.ability.length>360||card.edition.length>60||!['driver','action'].includes(card.kind)||!['standard','transcendent'].includes(card.rarity)||!Number.isInteger(card.stars)||card.stars<0||card.stars>10||(card.rarity==='standard'&&(card.stars<1||card.stars>5))||!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>30||!['???','∞','UNRATED','☀','★6','★10'].includes(card.transcendentLabel)||!battleEffectOptions.some(x=>x.value===card.effectKey))throw Error(`Row ${i+1}: invalid card details. Check names, stats and effectKey.`)
+    if(!card.name||card.name.length>70||!card.ability||card.ability.length>360||card.edition.length>60||!['driver','action'].includes(card.kind)||!['standard','transcendent'].includes(card.rarity)||!Number.isInteger(card.stars)||card.stars<0||card.stars>10||(card.rarity==='standard'&&(card.stars<1||card.stars>5))||!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>50||!['???','∞','UNRATED','☀','★6','★10'].includes(card.transcendentLabel)||!battleEffectOptions.some(x=>x.value===card.effectKey))throw Error(`Row ${i+1}: invalid card details. Check names, stats and effectKey.`)
     const key=`${card.name.toLowerCase()}::${card.edition.toLowerCase()}`
     if(seen.has(key))throw Error(`Duplicate name/edition in row ${i+1}`)
     seen.add(key)
