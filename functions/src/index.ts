@@ -83,6 +83,7 @@ function checkCommand(data: unknown): Command {
   if (!data || typeof data!=='object') throw new HttpsError('invalid-argument','Missing action.')
   const d=data as Record<string,unknown>
   if(d.type==='end') return {type:'end'}
+  if(d.type==='choose_discard' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'choose_discard',index:d.index as number}
   if(d.type==='play' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'play',index:d.index as number}
   if(d.type==='attack' && typeof d.attackerId==='string' && /^unit-\d{1,7}$/.test(d.attackerId)
      && (d.targetId===undefined || (typeof d.targetId==='string' && /^unit-\d{1,7}$/.test(d.targetId))))
