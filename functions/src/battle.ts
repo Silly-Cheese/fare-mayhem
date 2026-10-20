@@ -24,7 +24,7 @@ function shuffle<T>(input:T[],random:()=>number):T[]{const a=[...input];for(let 
 function createFighter(deck:string[],random:()=>number):Fighter{const cards=shuffle(deck,random);return{reputation:20,fare:1,maxFare:1,deck:cards.slice(5),hand:cards.slice(0,5),board:[],fatigue:0}}
 export function createBattle(published:BattleCard[],random:()=>number=Math.random,ownedCardIds?:string[]):BattleState{
   const cards=trainingCards();const deck=[...TRAINING_DECK]
-  const eligible=published.filter(c=>c.source==='official'&&EFFECTS.includes(c.effect)&&c.cost>=0&&c.cost<=10).slice(0,40)
+  const eligible=published.filter(c=>c.source==='official'&&EFFECTS.includes(c.effect)&&c.cost>=0&&c.cost<=10).slice(0,ownedCardIds?200:8)
   eligible.forEach((card,i)=>{const id=`official_${card.id}`;cards[id]={...card,id};if(!ownedCardIds&&i<8)deck[i*3]=id})
   const playerDeck=ownedCardIds ? ownedCardIds.map(id=>`official_${id}`) : deck
   if(ownedCardIds&&(ownedCardIds.length!==25||playerDeck.some(id=>!cards[id])))throw Error('Invalid owned practice deck.')
