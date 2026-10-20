@@ -23,16 +23,16 @@ export const saveOfficialCard = onCall({region,invoker:'public', maxInstances: 3
   try{card=validateCard(request.data?.card)}catch(e){throw new HttpsError('invalid-argument',e instanceof Error?e.message:'Invalid card')}
   const id: string = request.data?.id ? request.data.id : db.collection('cardDrafts').doc().id
   if(!validId(id)) throw new HttpsError('invalid-argument','Invalid card ID.')
-  for(const type of ['original','cartoon'] as const){
-    const path=type==='original'?card.originalStoragePath:card.cartoonStoragePath
+  for(const type of ['original','cartoon','finished'] as const){
+    const path=type==='original'?card.originalStoragePath:type==='cartoon'?card.cartoonStoragePath:card.finishedStoragePath
     if(path && !validateArtworkPath(id,path,type)) throw new HttpsError('invalid-argument','Artwork must belong to this card.')
   }
   const docRef=db.doc(`cardDrafts/${id}`)
   const previous=await docRef.get()
   // Artwork pointers can only be set from the appropriate owner-created Storage object.
-  for(const type of ['original','cartoon'] as const){
-    const path=type==='original'?card.originalStoragePath:card.cartoonStoragePath
-    if(path && path !== previous.get(type==='original'?'originalStoragePath':'cartoonStoragePath')){
+  for(const type of ['original','cartoon','finished'] as const){
+    const path=type==='original'?card.originalStoragePath:type==='cartoon'?card.cartoonStoragePath:card.finishedStoragePath
+    if(path && path !== previous.get(type==='original'?'originalStoragePath':type==='cartoon'?'cartoonStoragePath':'finishedStoragePath')){
       const [exists]=await getStorage().bucket().file(path).exists()
       if(!exists) throw new HttpsError('failed-precondition','Artwork has not finished uploading.')
     }
