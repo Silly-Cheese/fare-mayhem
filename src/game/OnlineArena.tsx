@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { ArrowRight, Clock3, Heart, LoaderCircle, Radio, RefreshCw, ShieldCheck, Swords, Users, Zap } from 'lucide-react'
+import { backendError } from './backendErrors'
 import './online.css'
 
 type Driver={id:string;name:string;nickname:string;kind:'driver'|'action';cost:number;attack:number;health:number;effect:string;imageUrl:string;rating:string;source:string}
@@ -16,13 +17,7 @@ const join=httpsCallable<{deckSlot:number},{status:string;matchId?:string}>(func
 const leave=httpsCallable<Record<string,never>,{left:boolean}>(functions,'leavePvpQueue')
 const statusCall=httpsCallable<Record<string,never>,Status>(functions,'getPvpStatus')
 const act=httpsCallable<{matchId:string;version:number;action:Action},Status>(functions,'takePvpAction')
-function explain(error:unknown){
-  const message=error instanceof Error?error.message:String(error)
-  if(message.includes('functions/not-found'))return 'Phase 5 multiplayer Functions are not deployed yet. Update your local repository and deploy Firebase Functions.'
-  if(message.includes('functions/internal')||message.includes('FirebaseError: internal'))return 'The multiplayer backend returned an internal error. Check Firebase Functions logs for its cause.'
-  if(message.includes('failed-precondition'))return 'Matchmaking requires a saved 25-card deck made from official cards you own, or a currently valid action.'
-  return message.replace(/^Firebase: /,'')
-}
+const explain=(error:unknown)=>backendError(error,'Online PvP')
 function Piece({card,unit,select,active,disabled}:{card?:Driver;unit?:Unit;select?:()=>void;active?:boolean;disabled?:boolean}){
   if(!card)return <span className="online-empty">UNAVAILABLE CARD</span>
   return <button type="button" className={`online-piece ${active?'selected':''}`} disabled={disabled||!select} onClick={select}>

@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { ArrowRight, Check, ChevronDown, Layers3, LoaderCircle, Plus, RefreshCw, ShieldCheck, Star, Trash2 } from 'lucide-react'
 import { TradeDesk } from './TradeDesk'
+import { backendError } from '../game/backendErrors'
 import './collection.css'
 
 type Card={id:string;name:string;nickname:string;rarity:string;stars:number;kind:string;imageUrl:string}
@@ -15,7 +16,7 @@ export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onR
   const [data,setData]=useState<Collection|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false),[slot,setSlot]=useState(1),[name,setName]=useState('My first dispatch'),[ids,setIds]=useState<string[]>([])
   const [tab,setTab]=useState<'collection'|'decks'|'trades'>('collection')
-  async function refresh(){if(!user)return;setBusy(true);setError('');try{const value=(await loadCollection({})).data;setData(value)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+  async function refresh(){if(!user)return;setBusy(true);setError('');try{const value=(await loadCollection({})).data;setData(value)}catch(e){setError(backendError(e,'My Collection'))}finally{setBusy(false)}}
   useEffect(()=>{setData(null);setIds([]);if(user)void refresh()},[user?.uid])
   function pickSlot(n:number){setSlot(n);const saved=data?.decks.find(x=>x.slot===n);setIds(saved?.ids||[]);setName(saved?.name||`Dispatch Deck ${n}`)}
   function qty(id:string){return data?.inventory.find(x=>x.id===id)?.quantity||0}
@@ -25,7 +26,7 @@ export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onR
   ids.forEach(id=>counts.set(id,(counts.get(id)||0)+1))
   function add(id:string){const copies=counts.get(id)||0;if(ids.length>=25||copies>=Math.min(3,qty(id)))return;setIds([...ids,id]);setNotice('')}
   function remove(id:string){const at=ids.lastIndexOf(id);if(at>=0){setIds(ids.filter((_,index)=>index!==at));setNotice('')}}
-  async function save(){if(ids.length!==25)return;setBusy(true);setError('');setNotice('');try{await saveDeck({slot,name,ids});setNotice(`Deck ${slot} saved. You can use it in Secure Practice.`);await refresh()}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+  async function save(){if(ids.length!==25)return;setBusy(true);setError('');setNotice('');try{await saveDeck({slot,name,ids});setNotice(`Deck ${slot} saved. You can use it in Secure Practice.`);await refresh()}catch(e){setError(backendError(e,'My Collection'))}finally{setBusy(false)}}
   if(!user)return <div className="page-content collection-page"><h1>My Collection</h1><p>Sign in to store the cards you earn and assemble official decks.</p><button className="button primary" onClick={onRequireSignIn}>Sign in <ArrowRight size={16}/></button></div>
   return <div className="page-content collection-page page-enter">
     <div className="collection-heading"><div><span className="eyebrow"><ShieldCheck size={15}/> PHASE 04 · VERIFIED OWNERSHIP</span><h1>My Collection<span className="punctuation">.</span></h1><p>Only cards awarded by the trusted game server or received through a verified trade belong to you. Published cards alone don't give you ownership.</p></div><button className="button outline" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={17}/> Refresh</button></div>

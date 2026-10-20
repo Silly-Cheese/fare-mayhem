@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { ArrowLeftRight, Check, RefreshCw, Send, X } from 'lucide-react'
 import { functions } from '../firebase'
+import { backendError } from '../game/backendErrors'
 type Card={id:string;name:string}
 type Part={id:string;qty:number}
 type Trade={id:string;senderUid:string;recipientUid:string;offered:Part[];requested:Part[];status:string;createdAtMs:number;expiresAtMs:number}
@@ -13,7 +14,7 @@ export function TradeDesk({uid,cards,inventory,refreshCollection}:{uid:string;ca
   const [offer,setOffer]=useState<Part[]>([]),[request,setRequest]=useState<Part[]>([])
   const [error,setError]=useState(''),[status,setStatus]=useState(''),[busy,setBusy]=useState(false)
   const qty=(id:string)=>inventory.find(c=>c.id===id)?.quantity||0
-  async function reload(){setBusy(true);setError('');try{setTrades((await list({})).data.trades)}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+  async function reload(){setBusy(true);setError('');try{setTrades((await list({})).data.trades)}catch(e){setError(backendError(e,'Card Trading'))}finally{setBusy(false)}}
   useEffect(()=>{void reload()},[uid])
   function update(mode:'offer'|'request',id:string,n:number){
     const current=mode==='offer'?offer:request,setter=mode==='offer'?setOffer:setRequest
@@ -27,13 +28,13 @@ export function TradeDesk({uid,cards,inventory,refreshCollection}:{uid:string;ca
     if(!window.confirm('Send this trade offer? The recipient must explicitly accept, and card ownership is rechecked at acceptance.'))return
     setBusy(true);setError('');setStatus('')
     try{await create({email,offered:offer,requested:request});setOffer([]);setRequest([]);setEmail('');setStatus('Trade offer sent. The recipient will see it when they open their trading desk.');await reload()}
-    catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+    catch(e){setError(backendError(e,'Card Trading'))}finally{setBusy(false)}
   }
   async function decide(id:string,action:'accept'|'decline'|'cancel'){
     if(action==='accept'&&!window.confirm('Accept this trade and exchange the listed cards?'))return
     setBusy(true);setError('');setStatus('')
     try{await respond({id,action});setStatus('Trade updated.');await Promise.all([reload(),refreshCollection()])}
-    catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}
+    catch(e){setError(backendError(e,'Card Trading'))}finally{setBusy(false)}
   }
   const available=cards.filter(x=>qty(x.id)>0)
   return <div className="trade-desk">
