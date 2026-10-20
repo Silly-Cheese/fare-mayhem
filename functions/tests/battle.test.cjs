@@ -20,3 +20,40 @@ test('Phase 4 official collection deck replaces only the player training cards',
   assert.ok(match.opponent.hand.concat(match.opponent.deck).every(id=>!id.startsWith('official_')))
   assert.throws(()=>createBattle(official,()=>0.42,[...ids.slice(0,24),'missingcard123']),/Invalid owned practice deck/)
 })
+
+test('computer opponent attacks human Reputation and returns the turn',()=>{
+  const s=createBattle([],()=>0.3)
+  s.turn='opponent'
+  s.opponent.hand=[]
+  s.opponent.fare=0
+  s.opponent.board=[{id:'unit-28',cardId:'orb',hp:5,ready:true}]
+  const previous=s.player.reputation
+  const result=aiTurn(s)
+  assert.equal(result.player.reputation,previous-2)
+  assert.equal(result.turn,'player')
+  assert.ok(result.log.some(x=>x.includes('hit your Reputation')))
+  assert.equal(result.opponent.board[0].ready,true)
+  assert.equal(s.player.reputation,previous,'computer attack should not mutate source state')
+})
+test('computer opponent targets a legal blocker before attacking Reputation',()=>{
+  const s=createBattle([],()=>0.3)
+  s.turn='opponent'
+  s.opponent.hand=[]
+  s.opponent.fare=0
+  s.opponent.board=[{id:'unit-30',cardId:'detour',hp:4,ready:true}]
+  s.player.board=[{id:'unit-31',cardId:'goblin',hp:1,ready:true}]
+  const result=aiTurn(s)
+  assert.equal(result.player.reputation,20)
+  assert.equal(result.player.board.length,0)
+  assert.ok(result.log.some(x=>x.includes('struck Traffic Goblin')))
+})
+test('computer opponent cannot attack with a newly dispatched driver',()=>{
+  const s=createBattle([],()=>0.3)
+  s.turn='opponent'
+  s.opponent.hand=['goblin']
+  s.opponent.fare=3
+  s.opponent.board=[]
+  const result=aiTurn(s)
+  assert.equal(result.player.reputation,20)
+  assert.equal(result.opponent.board.length,1)
+})
