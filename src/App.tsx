@@ -9,7 +9,7 @@ import { db } from './firebase'
 import { CardStudio } from './studio/CardStudio'
 import { PublishedCatalog } from './studio/PublishedCatalog'
 import { CarFront, Swords, LibraryBig, Layers3, Users, BookOpen, ArrowRight, UserRound, X, ChevronRight, Sparkles, Zap, Heart, RotateCcw, LogOut, Menu, CircleHelp, Play, CheckCircle2, Download, ShieldCheck, Volume2, Trophy, History, Flame, Info, LoaderCircle, Star, Lock } from 'lucide-react'
-import { auth, loginEmail, loginGoogle, registerEmail, logout } from './firebase'
+import { auth, loginEmail, loginGoogle, registerEmail, logout, linkPasswordToCurrentUser } from './firebase'
 import { CARDS, type CardId } from './game/cards'
 import { attack, endTurn, makeGame, playCard, playable, runOpponentTurn, type Game } from './game/engine'
 import { GameCard } from './components/Card'
@@ -25,7 +25,10 @@ const prettyError = (message: string) => {
   if (message.includes('auth/popup-closed-by-user')) return 'Sign-in was cancelled.'
   if (message.includes('auth/invalid-credential')) return 'Email or password is incorrect.'
   if (message.includes('auth/email-already-in-use')) return 'There is already an account with that email.'
-  if (message.includes('auth/weak-password')) return 'Use a password of at least six characters.'
+  if (message.includes('auth/weak-password')) return 'Choose a stronger password.'
+  if (message.includes('auth/provider-already-linked')) return 'Email/password sign-in is already linked to this account.'
+  if (message.includes('auth/credential-already-in-use') || message.includes('auth/email-already-in-use')) return 'That email/password is attached to a different account. No changes were made. Keep using Google and do not create another account.'
+  if (message.includes('auth/requires-recent-login')) return 'For security, sign in again with Google and retry adding your password.'
   return message.replace(/^Firebase: /, '')
 }
 
@@ -57,6 +60,59 @@ function AuthDialog({ onClose, onAuthenticated }: { onClose: () => void; onAuthe
       <div className="divider-or"><span>or</span></div>
       <button disabled={busy} className="button outline full" onClick={google}><span className="google-g">G</span> Continue with Google</button>
       <p className="auth-note"><Lock size={13}/> Account features use Firebase Authentication. Demo battles don't require a login.</p>
+    </section>
+  </div>
+}
+
+function AccountSecurityDialog({ user, isOwner, onClose }: { user: User; isOwner: boolean; onClose: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [linked, setLinked] = useState(() => user.providerData.some(provider => provider.providerId === 'password'))
+
+  async function linkPassword(event: FormEvent) {
+    event.preventDefault()
+    if (password.length < 12) { setError('Choose a password with at least 12 characters.'); return }
+    if (password !== confirmPassword) { setError('The passwords do not match.'); return }
+    setBusy(true);setError('')
+    try {
+      const updated = await linkPasswordToCurrentUser(password)
+      if (updated.uid !== user.uid) throw Error('The original account ID did not match. Contact support before signing out.')
+      setLinked(true);setSuccess(true);setPassword('');setConfirmPassword('')
+    } catch (err) {
+      setError(prettyError(err instanceof Error ? err.message : 'Unable to link email/password sign-in.'))
+    } finally { setBusy(false) }
+  }
+
+  return <div className="dialog-cover" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}>
+    <section className="dialog auth-dialog security-dialog" role="dialog" aria-modal="true" aria-label="Account settings">
+      <button type="button" className="icon-button dialog-close" disabled={busy} onClick={onClose} aria-label="Close account settings"><X size={19}/></button>
+      <span className="eyebrow"><span className="eyebrow-dot"/> ACCOUNT SECURITY</span>
+      <h2>Your driver account.</h2>
+      <p>Manage how you sign in, without creating another account or moving your collection.</p>
+      <div className="security-identity">
+        <strong>{user.displayName||'Fare Mayhem driver'}</strong>
+        <span>{user.email||'No email on this account'}</span>
+        <small>Firebase user ID: <code>{user.uid}</code></small>
+        {isOwner&&<span className="security-owner"><ShieldCheck size={16}/> Verified Fare Mayhem owner</span>}
+      </div>
+      {success&&<div className="security-success" role="status"><CheckCircle2 size={19}/> Email/password sign-in is now linked! Your Google sign-in and original account ID remain active. Test the new password on another device before signing out here.</div>}
+      {linked?<div className="security-success"><CheckCircle2 size={19}/><div><b>Email/password is enabled</b><p>Use your existing email with the normal Sign in screen. Google sign-in remains available too.</p></div></div>:
+        user.email&&!user.emailVerified?<div className="auth-error">Your account email must be verified before adding password sign-in.</div>:
+        <form className="auth-form" onSubmit={event=>void linkPassword(event)}>
+          <p className="security-safe"><Lock size={15}/> Add a password to <b>this same account</b>. Your UID, cards, owner claim and existing Google sign-in are preserved.</p>
+          <label>Account email<input type="email" value={user.email||''} disabled readOnly autoComplete="username"/></label>
+          <label>Create password<input required type="password" autoComplete="new-password" minLength={12} value={password} disabled={busy} onChange={e=>setPassword(e.target.value)} placeholder="At least 12 characters"/></label>
+          <label>Confirm password<input required type="password" autoComplete="new-password" minLength={12} value={confirmPassword} disabled={busy} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Enter password again"/></label>
+          {error&&<div className="auth-error" role="alert">{error}</div>}
+          <button type="submit" disabled={busy||!user.email} className="button primary full">{busy?<LoaderCircle className="spin" size={18}/>:<ShieldCheck size={18}/>} Add email/password to this account</button>
+        </form>}
+      <div className="security-actions">
+        <button type="button" className="button outline" onClick={onClose} disabled={busy}>Close</button>
+        <button type="button" className="button outline" disabled={busy} onClick={()=>{onClose();void logout()}}><LogOut size={16}/> Sign out</button>
+      </div>
     </section>
   </div>
 }
@@ -161,6 +217,7 @@ export default function App() {
   const [page,setPage]=useState<Page>('dispatch')
   const [inspect,setInspect]=useState<CardId|null>(null)
   const [authOpen,setAuthOpen]=useState(false)
+  const [accountOpen,setAccountOpen]=useState(false)
   const [user,setUser]=useState<User|null>(null)
   const [isOwner,setIsOwner]=useState(false)
   const [selectedPracticeDeck,setSelectedPracticeDeck]=useState<number|undefined>()
@@ -183,20 +240,21 @@ export default function App() {
     return ()=>{alive=false;unsubscribe()}
   },[])
   useEffect(()=>{const listener=(e:Event)=>{e.preventDefault();setInstallPrompt(e as InstallEvent)};window.addEventListener('beforeinstallprompt',listener);return()=>window.removeEventListener('beforeinstallprompt',listener)},[])
-  useEffect(()=>{const listener=(e:KeyboardEvent)=>{if(e.key==='Escape'){setInspect(null);setAuthOpen(false);setMenuOpen(false);setInstallHelp(false)}};window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener)},[])
+  useEffect(()=>{const listener=(e:KeyboardEvent)=>{if(e.key==='Escape'){setInspect(null);setAuthOpen(false);setAccountOpen(false);setMenuOpen(false);setInstallHelp(false)}};window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener)},[])
   function go(p:Page) {if(p==='studio'&&!isOwner)return;setPage(p);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'})}
   function install() { if(installPrompt){installPrompt.prompt();void installPrompt.userChoice.then(()=>setInstallPrompt(null))}else setInstallHelp(true) }
   return <div className="app-shell"><aside className={`main-sidebar ${menuOpen?'expanded':''}`}><div className="brand" onClick={()=>go('dispatch')} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter')go('dispatch')}}><span className="brand-icon"><CarFront size={26} strokeWidth={2.7}/></span><span><b>FARE<span>MAYHEM</span></b><small>FIVE STARS. ZERO GUARANTEES.</small></span></div>
     <div className="sidebar-label">DISPATCH TERMINAL</div><nav className="primary-nav" aria-label="Main menu">{navItems.filter(item=>(item.id!=='studio'||isOwner)&&(item.id!=='practice'||!!user)&&(item.id!=='collection'||!!user)).map(item=><button key={item.id} onClick={()=>go(item.id)} aria-current={page===item.id?'page':undefined} className={page===item.id?'current':''}><item.icon size={20}/><span>{item.label}</span>{page===item.id&&<ChevronRight size={16} className="nav-chevron"/>}</button>)}</nav>
-    <div className="sidebar-bottom"><div className="sidebar-sticker"><span className="sticker-eyebrow">PUBLIC SERVICE NOTICE</span><span>Our drivers are<br/><b>not okay.</b></span><CarFront size={33}/></div><button className="profile-button" onClick={()=>user?void logout():setAuthOpen(true)}><span className="profile-icon"><UserRound size={19}/></span><span><b>{user?(user.displayName||'Driver'):'Guest driver'}</b><small>{user?'Sign out':'Sign in or register'}</small></span>{user?<LogOut size={16}/>:<ArrowRight size={16}/>}</button></div>
+    <div className="sidebar-bottom"><div className="sidebar-sticker"><span className="sticker-eyebrow">PUBLIC SERVICE NOTICE</span><span>Our drivers are<br/><b>not okay.</b></span><CarFront size={33}/></div><button className="profile-button" onClick={()=>user?setAccountOpen(true):setAuthOpen(true)}><span className="profile-icon"><UserRound size={19}/></span><span><b>{user?(user.displayName||'Driver'):'Guest driver'}</b><small>{user?'Account settings':'Sign in or register'}</small></span>{user?<ShieldCheck size={16}/>:<ArrowRight size={16}/>}</button></div>
   </aside>
-  <div className="app-main"><header className="topbar"><button className="mobile-menu icon-button" onClick={()=>setMenuOpen(v=>!v)} aria-label={menuOpen?'Close menu':'Open menu'}>{menuOpen?<X size={22}/>:<Menu size={22}/>}</button><div className="topbar-breadcrumb"><span>FARE MAYHEM</span><ChevronRight size={15}/><b>{navItems.find(n=>n.id===page)?.label}</b></div><div className="topbar-right"><span className="online-pill"><span/> PHASE 05</span>{isOwner&&<button className="button outline owner-top-button" onClick={()=>go('studio')}><ShieldCheck size={16}/> Card Studio</button>}<button className="icon-button install-button" onClick={install} title="Install Fare Mayhem" aria-label="Install Fare Mayhem"><Download size={20}/></button><button className="account-pill" onClick={()=>user?void logout():setAuthOpen(true)}><UserRound size={17}/><span>{user?user.displayName||'Account':'Sign in'}</span>{user?<LogOut size={14}/>:<ArrowRight size={15}/>}</button></div></header>
+  <div className="app-main"><header className="topbar"><button className="mobile-menu icon-button" onClick={()=>setMenuOpen(v=>!v)} aria-label={menuOpen?'Close menu':'Open menu'}>{menuOpen?<X size={22}/>:<Menu size={22}/>}</button><div className="topbar-breadcrumb"><span>FARE MAYHEM</span><ChevronRight size={15}/><b>{navItems.find(n=>n.id===page)?.label}</b></div><div className="topbar-right"><span className="online-pill"><span/> PHASE 05</span>{isOwner&&<button className="button outline owner-top-button" onClick={()=>go('studio')}><ShieldCheck size={16}/> Card Studio</button>}<button className="icon-button install-button" onClick={install} title="Install Fare Mayhem" aria-label="Install Fare Mayhem"><Download size={20}/></button><button className="account-pill" onClick={()=>user?setAccountOpen(true):setAuthOpen(true)}><UserRound size={17}/><span>{user?user.displayName||'Account':'Sign in'}</span>{user?<ShieldCheck size={14}/>:<ArrowRight size={15}/>}</button></div></header>
     <main>{page==='studio'&&isOwner?<CardStudio/>:page==='dispatch'?<Dispatch go={go} inspect={setInspect} user={user}/>:page==='battle'?<Battle inspect={setInspect}/>:page==='practice'?<PracticeArena user={user} deckSlot={selectedPracticeDeck} onRequireSignIn={()=>setAuthOpen(true)}/>:page==='online'?<OnlineArena user={user} onRequireSignIn={()=>setAuthOpen(true)}/>:page==='collection'?<CollectionPage user={user} onRequireSignIn={()=>setAuthOpen(true)} onPlay={slot=>{setSelectedPracticeDeck(slot);go('practice')}}/>:page==='records'?<Records inspect={setInspect}/>:<Rules go={go}/>}</main>
     <footer className="footer"><span>© {new Date().getFullYear()} FARE MAYHEM</span><span>Terrible drivers. Excellent battles.</span><a className="footer-domain" href="https://fare-mayhem.com/" title="Fare Mayhem official website">fare-mayhem.com</a><span>PHASE 05 · VERIFIED PRACTICE</span></footer>
   </div><nav className="mobile-bottom-nav" aria-label="Mobile navigation">{navItems.filter(item=>item.id!=='studio'&&item.id!=='practice'&&(user?item.id!=='rules':item.id!=='collection')).map(item=><button key={item.id} className={page===item.id?'active':''} onClick={()=>go(item.id)} aria-label={item.label}><item.icon size={21}/><span>{item.id==='dispatch'?'Home':item.id==='battle'?'Battle':item.id==='records'?'Cards':item.id==='collection'?'Owned':item.id==='online'?'PvP':'Rules'}</span></button>)}</nav>
   {menuOpen&&<button className="sidebar-scrim" onClick={()=>setMenuOpen(false)} aria-label="Close navigation"/>}
   {inspect&&<InspectDialog key={inspect} id={inspect} onClose={()=>setInspect(null)}/>}
   {authOpen&&<AuthDialog onClose={()=>setAuthOpen(false)} onAuthenticated={()=>setAuthOpen(false)}/>}
+  {accountOpen&&user&&<AccountSecurityDialog user={user} isOwner={isOwner} onClose={()=>setAccountOpen(false)}/>}
   {installHelp&&<div className="dialog-cover" onMouseDown={e=>{if(e.target===e.currentTarget)setInstallHelp(false)}}><section className="dialog install-dialog" role="dialog" aria-modal="true" aria-label="Install Fare Mayhem"><button className="icon-button dialog-close" onClick={()=>setInstallHelp(false)}><X/></button><Download size={34}/><h2>Take the chaos with you.</h2><p>To install, use your browser's menu and choose <b>Install app</b> or <b>Add to Home Screen</b>. On iPhone, open this page in Safari, tap Share, then Add to Home Screen.</p><button className="button primary" onClick={()=>setInstallHelp(false)}>Got it <CheckCircle2 size={17}/></button></section></div>}
   </div>
 }
