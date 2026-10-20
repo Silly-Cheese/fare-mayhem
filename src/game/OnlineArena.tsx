@@ -17,6 +17,8 @@ const join=httpsCallable<{deckSlot:number},{status:string;matchId?:string}>(func
 const leave=httpsCallable<Record<string,never>,{left:boolean}>(functions,'leavePvpQueue')
 const statusCall=httpsCallable<Record<string,never>,Status>(functions,'getPvpStatus')
 const act=httpsCallable<{matchId:string;version:number;action:Action},Status>(functions,'takePvpAction')
+type PastMatch={matchId:string;won:boolean;rounds:number;finishedAtMs:number}
+const historyCall=httpsCallable<Record<string,never>,{matches:PastMatch[]}>(functions,'getPvpHistory')
 const explain=(error:unknown)=>backendError(error,'Online PvP')
 function Piece({card,unit,select,active,disabled}:{card?:Driver;unit?:Unit;select?:()=>void;active?:boolean;disabled?:boolean}){
   if(!card)return <span className="online-empty">UNAVAILABLE CARD</span>
@@ -31,6 +33,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
   const [state,setState]=useState<Status>({status:'idle'})
   const [slot,setSlot]=useState(1),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false),[choice,setChoice]=useState<number|null>(null),[attacker,setAttacker]=useState<string|null>(null)
+  const [recent,setRecent]=useState<PastMatch[]>([])
   async function refresh(silent=false){
     if(!user)return
     if(!silent)setBusy(true)
@@ -50,6 +53,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
     let active=true
     const check=async()=>{try{const value=(await statusCall({})).data;if(active)setState(previous=>previous.view?.version&&value.view?.version&&previous.matchId===value.matchId&&previous.view.version>value.view.version?previous:value)}catch(e){if(active)setError(explain(e))}}
     void check()
+    void historyCall({}).then(r=>{if(active)setRecent(r.data.matches)}).catch(()=>{/* history is supplementary */})
     const handle=setInterval(()=>{void check()},10000)
     return()=>{active=false;clearInterval(handle)}
   },[user?.uid])
@@ -69,7 +73,7 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
     if(busy||state.status!=='matched'||!state.view||!state.matchId)return
     if(action.type==='forfeit'&&!window.confirm('Forfeit this online match? Your opponent will win.'))return
     setBusy(true);setError('')
-    try{const response=(await act({matchId:state.matchId,version:state.view.version,action})).data;setState(response);setChoice(null);setAttacker(null)}
+    try{const response=(await act({matchId:state.matchId,version:state.view.version,action})).data;setState(response);setChoice(null);setAttacker(null);if(response.view?.winner){void historyCall({}).then(x=>setRecent(x.data.matches)).catch(()=>{})}}
     catch(e){setError(explain(e));await refresh(true)}
     finally{setBusy(false)}
   }
@@ -96,5 +100,6 @@ export function OnlineArena({user,onRequireSignIn}:{user:User|null;onRequireSign
       <div className="online-match-log"><h3>Dispatch feed</h3><p className="online-hint">Game log descriptions use Dispatcher 1's perspective. Hands and deck order remain private.</p>{m.log.map((msg,i)=><p key={`${m.version}-${i}`}>{msg}</p>)}</div>
       {m.winner&&<div className="online-result"><h2>{m.winner==='self'?'Victory!':'Match finished'}</h2><p>{m.winner==='self'?'Your driver reputation survived.':'The other dispatcher took this one.'} No cards or rankings change in unranked PvP.</p><button className="button primary" disabled={busy} onClick={()=>void queue()}>Find another opponent</button></div>}
     </>}
+    {recent.length>0&&<section className="online-match-log online-history"><h3>Recent online matches</h3><div className="online-history-grid">{recent.map(item=><div key={item.matchId}><b>{item.won?'Victory':'Defeat'}</b><span>{item.rounds} rounds</span><small>{new Date(item.finishedAtMs).toLocaleDateString()}</small></div>)}</div></section>}
   </section>
 }
