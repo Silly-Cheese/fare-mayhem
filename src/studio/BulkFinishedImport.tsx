@@ -23,7 +23,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
     const selected=Array.from(e.target.files||[]);e.target.value=''
     setResults([]);setProgress(0)
     if(!selected.length)return
-    if(selected.length>50){setMessage('Choose 1–50 complete cards at a time. No files were imported.');return}
+    if(selected.length>50){setItems([]);setMessage('Choose up to 50 complete cards per batch. No files were imported.');return}
     const names=new Set<string>()
     const rows:Item[]=[]
     for(let i=0;i<selected.length;i++){
@@ -36,7 +36,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
       rows.push({key,file,card:{...initialCard,name},valid,message})
     }
     setItems(rows)
-    setMessage(`${rows.length} finished cards selected. ${rows.filter(x=>x.valid).length} valid dimensions. Review every card's name, rating, Fare and special ability. Nothing is published automatically.`)
+    setMessage(`${rows.length} finished cards selected. ${rows.filter(x=>x.valid).length} accepted images. Review every card's name, rating, Fare and special ability. Nothing is published automatically.`)
   }
   function edit(index:number,key:keyof EditableCard,value:unknown){setItems(old=>old.map((item,i)=>i===index?changed(item,key,value):item))}
   async function run(){
@@ -67,8 +67,8 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
     setMessage('Bulk finished-card upload complete. Open each draft in Card Studio for review before publishing. Errors do not stop other cards.')
   }
   return <div className="finished-batch">
-    <div className="finished-batch-intro"><Images size={23}/><div><h3>Option B · Mass import finished cards</h3><p>Select up to 50 complete images—no spreadsheet required. Every image must be a 5:7 portrait like Death. Image files are preserved exactly, including the card borders, printed words and graphics.</p></div></div>
-    <label className="studio-upload"><FileImage size={23}/><span>Select multiple complete cards</span><small>PNG · JPG · WebP · 5:7 portrait · at least 700 × 980 · up to 8 MB each</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={running} onChange={e=>void choose(e)}/></label>
+    <div className="finished-batch-intro"><Images size={23}/><div><h3>Option B · Mass import finished cards</h3><p>Select up to 50 complete images—no spreadsheet required. Death's 5:7 portrait is the recommended style, not a required size. Different card dimensions and proportions are accepted, and images are preserved exactly—including their borders, printed words and graphics.</p></div></div>
+    <label className="studio-upload"><FileImage size={23}/><span>Select multiple complete cards</span><small>PNG · JPG · WebP · any dimensions · up to 8 MB each. Portrait recommended.</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={running} onChange={e=>void choose(e)}/></label>
     <p className="studio-hint">Names initially come from filenames. The site does not infer rarity, stats, or special abilities from the image; review these fields to ensure the gameplay data matches what is printed on each card. Cards are always imported as private drafts.</p>
     {items.length>0&&<><div className="finished-batch-totals"><b>{items.length} cards selected</b><span>{invalid} invalid file(s)</span><span>{duplicates} already in the studio</span></div><div className="finished-batch-grid">{items.map((item,i)=><article className={item.valid?'finished-batch-row':'finished-batch-row invalid'} key={item.key}>
       <div className="finished-batch-image">{previews[item.key]?<img src={previews[item.key]} alt={`Full preview of ${item.file.name}`}/>:<FileImage size={29}/>}</div>
