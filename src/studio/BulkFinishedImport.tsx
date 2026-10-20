@@ -65,7 +65,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
         if(!card.edition.trim())throw Error('Edition is required.')
         if(!['driver','action'].includes(card.kind))throw Error('Choose a valid type.')
         if(card.kind==='action'&&/^(attack_|defeat_|turn_)/.test(card.effectKey))throw Error('Choose a non-driver ability for an action card.')
-        if(!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>30)throw Error('Invalid cost, attack or health.')
+        if(!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>50)throw Error('Invalid cost, attack or health.')
         if(existing.some(d=>d.name.toLowerCase()===card.name.trim().toLowerCase()&&d.edition.toLowerCase()===card.edition.trim().toLowerCase()))throw Error('Already exists in Card Studio. Review it there; this image-only importer does not overwrite existing cards.')
         if(items.some((other,j)=>j<i&&other.card.name.trim().toLowerCase()===card.name.trim().toLowerCase()&&other.card.edition.trim().toLowerCase()===card.edition.trim().toLowerCase()))throw Error('Duplicate name and edition within this batch.')
         const id=await saveOfficialCard(card)
