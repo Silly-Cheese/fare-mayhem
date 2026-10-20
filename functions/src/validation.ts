@@ -27,7 +27,7 @@ export function validateCard(data: unknown): SafeCard {
   if (!['???','∞','UNRATED','☀','★6','★10'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
     name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
-    cost:numberField(v,'cost',0,10),attack:numberField(v,'attack',0,30),health:numberField(v,'health',1,30),
+    cost:numberField(v,'cost',0,10),attack:numberField(v,'attack',0,30),health:numberField(v,'health',1,50),
     ability:field(v,'ability',360),flavor:field(v,'flavor',600),customerReview:field(v,'customerReview',350),
     edition:field(v,'edition',60,true),effectKey,originalUrl:field(v,'originalUrl',2000),originalStoragePath:field(v,'originalStoragePath',300),
     cartoonUrl:field(v,'cartoonUrl',2000),cartoonStoragePath:field(v,'cartoonStoragePath',300),
