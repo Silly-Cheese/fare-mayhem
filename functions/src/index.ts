@@ -113,6 +113,7 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
     for(const id of ids){counts.set(id,(counts.get(id)||0)+1);if(counts.get(id)!>3)throw new HttpsError('failed-precondition','Deck has too many copies of one card.')}
     const ownedCards=await Promise.all([...counts.entries()].map(async([id,n])=>{
       const [item,source]=await Promise.all([db.doc(`playerCollections/${uid}/cards/${id}`).get(),db.doc(`cards/${id}`).get()])
+      if(source.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God per saved deck.')
       if(!source.exists||source.get('status')!=='published'||Number(item.get('quantity')||0)<n)throw new HttpsError('failed-precondition','This deck includes cards you no longer own or which have been retired.')
       const card=officialBattleCard(id,source.data()!)
       if(!card)throw new HttpsError('failed-precondition','A deck card has invalid battle data.')
