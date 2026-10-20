@@ -23,6 +23,19 @@ jobs:
       - run: npm --prefix functions install --no-audit --no-fund
       - run: npm --prefix functions run test
       - run: npm run build
+      - name: Check custom-domain build outputs
+        shell: bash
+        run: |
+          test -f dist/index.html
+          test -f dist/manifest.webmanifest
+          test -f dist/favicon.svg
+          test -f dist/robots.txt
+          test -f dist/sitemap.xml
+          if grep -E '/fare-mayhem/' dist/index.html dist/manifest.webmanifest; then
+            echo "::error::Legacy GitHub path found in custom-domain build"
+            exit 1
+          fi
+          grep -F 'https://fare-mayhem.com/' dist/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
