@@ -32,6 +32,8 @@ export type OfficialCard = {
   originalStoragePath: string
   cartoonUrl: string
   cartoonStoragePath: string
+  finishedUrl: string
+  finishedStoragePath: string
   status: CardStatus
   updatedAt?: unknown
   publishedAt?: unknown
@@ -41,7 +43,7 @@ export const initialCard: EditableCard = {
   name: '', nickname: '', kind: 'driver', rarity: 'standard', stars: 1,
   transcendentLabel: '???', cost: 2, attack: 2, health: 3,
   ability: '', flavor: '', customerReview: '', edition: 'First Edition', effectKey: 'none',
-  originalUrl: '', originalStoragePath: '', cartoonUrl: '', cartoonStoragePath: ''
+  originalUrl: '', originalStoragePath: '', cartoonUrl: '', cartoonStoragePath: '', finishedUrl: '', finishedStoragePath: ''
 }
 export function ratingLabel(card: Pick<OfficialCard, 'rarity' | 'stars' | 'transcendentLabel'>) {
   return card.rarity === 'transcendent' ? card.transcendentLabel || '???' : '★'.repeat(card.stars) + '☆'.repeat(5 - card.stars)
