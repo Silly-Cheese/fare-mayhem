@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
-import { getFirestore, FieldValue, type Transaction } from 'firebase-admin/firestore'
+import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { createBattle, play, attack, endTurn, officialBattleCard, type BattleState, type BattleCard, type Side } from './battle'
 
