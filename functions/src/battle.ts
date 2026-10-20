@@ -191,6 +191,15 @@ export function effectiveFareCost(card:Pick<BattleCard,'cost'|'effect'>):number 
 }
 export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)}
 export function play(s:BattleState,side:Side,index:number):BattleState|null{if(s.pendingChoice||!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0));if(c.kind==='driver'){p.nextDriverDiscount=0;p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false})}effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
+export function chooseDiscard(s:BattleState,side:Side,index:number):BattleState|null{
+  if(!s.pendingChoice||s.pendingChoice.side!==side||s.turn!==side||!Number.isInteger(index))return null
+  const foe=side==='player'?'opponent':'player'
+  if(index<0||index>=s[foe].hand.length)return null
+  const next=clone(s),removed=next[foe].hand.splice(index,1)[0]
+  delete next.pendingChoice
+  log(next,`${fighterLabel(next,side)} used Third-Eye and discarded ${next.cards[removed]?.name||'a card'}.`)
+  return next
+}
 export function attack(s:BattleState,side:Side,attackerId:string,targetId?:string):BattleState|null{
   if(s.turn!==side||s.winner||s.pendingChoice)return null
   const source=s[side].board.find(u=>u.id===attackerId)
@@ -270,6 +279,7 @@ export function aiTurn(s:BattleState):BattleState{
     const played=play(next,'opponent',choice.index)
     if(!played)break
     next=played
+    if(next.pendingChoice){next=chooseDiscard(next,'opponent',0)??next}
     if(next.winner)return next
   }
   attackReady()
@@ -279,14 +289,15 @@ export function aiTurn(s:BattleState):BattleState{
 export function applyCommand(s:BattleState,command:Command):BattleState|null{
   if(s.turn!=='player'||s.winner)return null
   let next:BattleState|null=null
-  if(command.type==='play')next=play(s,'player',command.index)
+  if(command.type==='choose_discard')next=chooseDiscard(s,'player',command.index)
+  else if(command.type==='play')next=play(s,'player',command.index)
   else if(command.type==='attack')next=attack(s,'player',command.attackerId,command.targetId)
-  else if(command.type==='end')next=aiTurn(endTurn(s))
+  else if(command.type==='end'&&!s.pendingChoice)next=aiTurn(endTurn(s))
   if(next)next.version=s.version+1
   return next
 }
 /** Opponent hand and deck order never leave the backend. */
-export function publicView(s:BattleState):View{const {hand,deck,...opponent}=s.opponent;return{player:s.player,opponent:{...opponent,handCount:hand.length,deckCount:deck.length},cards:s.cards,turn:s.turn,round:s.round,winner:s.winner,log:s.log,version:s.version}}
+export function publicView(s:BattleState):View{const {hand,deck,...opponent}=s.opponent;return{player:s.player,opponent:{...opponent,handCount:hand.length,deckCount:deck.length},cards:s.cards,turn:s.turn,round:s.round,winner:s.winner,log:s.log,version:s.version,pendingChoice:s.pendingChoice?.side==='player'?s.pendingChoice:undefined,revealedOpponentHand:s.pendingChoice?.side==='player'?[...hand]:undefined}}
 export function officialBattleCard(id:string,card:Record<string,unknown>):BattleCard|null{
   if(card.status!=='published'||!['driver','action'].includes(String(card.kind)))return null
   const effectKey=card.effectKey??'none'
