@@ -247,7 +247,7 @@ The official finished-card reference is the owner's **Death** card at **1060 × 
 
 1. Create a card and enter its name and game attributes.
 2. Open **Artwork & full cards**.
-3. Upload a complete PNG, JPG, or WebP card under **Option B · Complete card upload**. Files must be 5:7 portrait, at least **700 × 980**, and under **8 MB**.
+3. Upload a complete PNG, JPG, or WebP card under **Option B · Complete card upload**. A **5:7 portrait** like Death is recommended but not required. Files of other dimensions and proportions are accepted; the maximum size is **8 MB**.
 4. The complete image (including border, rating, artwork, text and stat badges) is displayed intact in Card Studio, public Driver Records, My Collection, Secure Practice and Online PvP, without wrapping it in another card frame.
 5. Publish only after checking that the printed stats and ability agree with your structured game metadata.
 
@@ -257,7 +257,7 @@ Legacy cards with individual original/cartoon illustrations still use the origin
 
 In **Card Studio → Bulk Import → Upload finished cards**, choose **1–50 full-card images in one batch**. The uploader:
 
-- checks image type, size and 5:7 proportions before upload
+- checks supported image type (PNG, JPG, WebP), file size (up to 8 MB), and that the image can open; it **does not reject images for their dimensions or aspect ratio**
 - previews each image and derives a suggested name from its filename
 - allows per-card review of type, 1–5 stars or transcendent rating, Fare cost, Attack, Health, edition, one of the 35 playable effects, and printed ability text
 - detects known duplicate name/edition pairs and does not silently overwrite old cards
