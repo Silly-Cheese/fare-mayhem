@@ -1,4 +1,4 @@
-# FARE MAYHEM — Phase 2
+# FARE MAYHEM — Phase 4
 
 **Five stars. Zero guarantees.** An original, cartoon-styled rideshare-driver trading card game. Phase 1 is a *functional training game*, not a multiplayer or collectible-card economy.
 
@@ -144,3 +144,60 @@ The optional paid cartoon-generation function is separate. To enable it, configu
 - Before open registration or heavy public traffic, turn on App Check with supported providers, enable rate-limiting/monitoring, test Firebase rules with the Emulator Suite, and configure billing alerts. App Check is currently intentionally not enforced so local and GitHub Pages integration can be tested; it is not a substitute for backend authorization.
 - There is no full owner dashboard to manage historical inventory because player collections are Phase 4. Permanent deletion currently has no collection dependencies, but later phases will need a retention policy for released cards once they can be owned/traded.
 - Cloud Functions deploy is a **manual privileged action**. No Firebase service account credential is in this repository.
+
+---
+
+## Phase 4 — Owner import, authentic collections, personal decks and card trading
+
+**No extra OpenAI image-generation billing is required.** The core Functions no longer reference `OPENAI_API_KEY`; the optional paid illustration Cloud Function has been removed from source. Card Studio supports uploading an original drawing **and a separate completed cartoon illustration** directly from the owner's device. Use artwork generated in ChatGPT, a drawing program or elsewhere and save it locally before uploading. Published cards use the cartoon illustration when supplied or the original otherwise.
+
+**Only Orb (Kris Kringle) remains in the public-facing sample Driver Records area.** Seven invented test cards were removed from the visible record registry; they are still used internally by the isolated 25-card training battle so that the tutorial continues working. They are NOT official collectible inventory. Orb is initially archival artwork built into the frontend, not a minted Firebase player collectible; the owner needs to create or import a corresponding official Firestore card to make it collectible.
+
+### Owner-only Bulk Import
+
+Card Studio → **Bulk Import** accepts up to 50 cards in a single CSV or JSON file. Required: `name`, `ability`. Optional: `nickname,kind,rarity,stars,transcendentLabel,cost,attack,health,flavor,customerReview,edition,effectKey,originalFile,cartoonFile`. JSON may be an array or `{"cards":[...]}`. Missing optional fields receive the same safe defaults as a new single card.
+
+Example CSV:
+
+```csv
+name,nickname,kind,rarity,stars,cost,attack,health,ability,effectKey,edition,originalFile,cartoonFile
+Kris Kringle,The Orb,driver,standard,2,3,2,5,On arrival steal up to 1 Fare,steal_fare_1,Original,orb-original.png,orb-cartoon.png
+```
+
+Choose the card list, then choose all relevant image files. **Filenames must match** `originalFile` and `cartoonFile`. Preview before importing; import as private drafts first unless you intentionally check immediate publication. The importer checks current drafts for identical case-insensitive `name + edition` and updates those instead of automatically creating duplicates. Each row reports success/failure separately. When an upload fails after creating a draft, review it in Card Studio before retrying.
+
+### Phase 4 player collections
+
+- Signed-in players have a **My Collection** area. Browser code cannot write inventory: it can only query trusted callable Functions. A listed official card is not automatically owned by a player.
+- A **server-validated Secure Practice victory** awards at most **one randomly selected published official card every 24 hours per account**, if a published card was among the server-side match cards. The reward is recorded atomically with the match result, using an independent reward gate to stop duplicate awards. Guest training battles award nothing.
+- The owner can import and publish cards, but cannot mint arbitrary collectibles through the browser. Cards previously awarded to players are flagged in `issuedCardRegistry` and cannot be permanently deleted; unpublish them instead.
+- Players can save three deck slots, each requiring exactly **25 currently published official cards** with no more than **three copies per card**, and no more than the player actually owns. The server revalidates both ownership and publication when starting Secure Practice with an owned deck.
+- The optional owned deck is used for the **player's side** of secure practice; the computer still uses the controlled training deck. No ranked PvP yet.
+- The **Trading** tab lets a player address another registered player using their sign-in email. An offer has 1–5 distinct cards on each side (1–3 copies per item), lasts seven days, and requires explicit acceptance by its recipient. Each transfer occurs atomically in a Firestore transaction with fresh balance and release-status checks. Pending offers do not escrow inventory; an offer can fail if a participant spends the relevant copies before acceptance.
+- No real-world payments, real-money pack purchase, or cash-valued trading are included. Online head-to-head PvP remains future work.
+
+### Deploy after fetching these commits
+
+The repository's GitHub Pages workflow builds and tests the static site; **it does not deploy Firebase backends**. From the local project folder on your own Windows machine:
+
+```powershell
+cd "C:\Users\Owner\Documents\fare-mayhem"
+git pull origin main
+npm.cmd install
+npm.cmd --prefix functions install
+npm.cmd run test
+npm.cmd run build
+npm.cmd --prefix functions run test
+firebase.cmd use fare-mayhem
+firebase.cmd deploy --only storage
+firebase.cmd deploy --only functions
+```
+
+If `git pull` is unavailable, download and extract the latest repository source into your local project directory without deleting your locally stored Firebase credentials. Never commit Firebase service-account keys or API secrets. Since the Cloud Functions no longer use the image-generation key, **do not create or purchase `OPENAI_API_KEY`**.
+
+Collection and trade data is server-only by default under `playerCollections`, `playerDecks`, `cardTrades`, `collectionRewardGates` and `issuedCardRegistry`. No additional client Firestore write grants should be added. Existing Firestore rules may remain in place; **deploy the updated Storage rules** before using manual cartoon uploads.
+
+### Before allowing a large public audience
+
+Enable Firebase App Check and abuse monitoring; Cloud Functions are currently configured with `enforceAppCheck:false` for rollout/testing. Set cloud budget alerts, verify Auth provider settings, enforce adequate account rate limits, and test inventory/trading transactions with Firestore Emulator and multiple test users. A one-win-per-day reward cap does not prevent a person from opening multiple accounts. Firebase Blaze is usage-based and can generate charges even though the OpenAI illustration API has been removed.
+
