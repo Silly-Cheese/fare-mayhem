@@ -24,7 +24,6 @@ const prettyError = (message: string) => {
   if (message.includes('auth/unauthorized-domain')) return 'Add fare-mayhem.com to Firebase Authentication → Settings → Authorized domains (without https://).';
   if (message.includes('auth/popup-closed-by-user')) return 'Sign-in was cancelled.'
   if (message.includes('auth/invalid-credential')) return 'Email or password is incorrect.'
-  if (message.includes('auth/email-already-in-use')) return 'There is already an account with that email.'
   if (message.includes('auth/weak-password')) return 'Choose a stronger password.'
   if (message.includes('auth/provider-already-linked')) return 'Email/password sign-in is already linked to this account.'
   if (message.includes('auth/credential-already-in-use') || message.includes('auth/email-already-in-use')) return 'That email/password is attached to a different account. No changes were made. Keep using Google and do not create another account.'
