@@ -56,9 +56,24 @@ export const battleEffectOptions = [
   {value:"fish_boy_slipstream_shield_2",category:"Original characters",label:"Fish Boy · slipstream",help:"On arrival: gain 1 Fare and shield this Driver from the next 2 damage."},
   {value:"prof_khashed_precalc_confusion",category:"Original characters",label:"Prof. Khashed · precalc confusion",help:"On arrival: opponent loses 1 Fare; suppress the active opposing Driver's next ability."},
   {value:"beatrice_swarm_lifesteal_2",category:"Original characters",label:"Beatrice · swarm",help:"On arrival: deal 2 damage to an opposing Driver and restore 2 HP to Beatrice."},
+  {value:"reputation_repair_restore_2",category:"Action cards",label:"Reputation Repair",help:"Restore 2 Reputation."},
+  {value:"tip_boost_gain_2_fare",category:"Action cards",label:"Tip Boost",help:"Gain 2 Fare."},
+  {value:"detour_return_driver_to_hand",category:"Action cards",label:"Detour",help:"Return a Driver to its owner’s hand."},
+  {value:"lucky_break_prevent_next_damage",category:"Action cards",label:"Lucky Break",help:"Prevent the next damage to a Driver."},
+  {value:"backseat_boost_add_2_hp",category:"Action cards",label:"Backseat Boost",help:"Give a Driver +2 HP."},
+  {value:"draw_up_draw_2",category:"Action cards",label:"Draw Up",help:"Draw 2 cards."},
+  {value:"nope_cancel_action",category:"Action cards",label:"Nope!",help:"Cancel an Action card just played."},
+  {value:"second_wind_heal_driver_2",category:"Action cards",label:"Second Wind",help:"Restore 2 HP to a Driver."},
+  {value:"switcheroo_swap_2_drivers",category:"Action cards",label:"Switcheroo",help:"Swap 2 Drivers."},
+  {value:"fare_boost_gain_2_fare",category:"Action cards",label:"Fare Boost",help:"Gain 2 Fare."},
+  {value:"quick_arrival_instant_driver",category:"Action cards",label:"Quick Arrival",help:"A Driver arrives instantly."},
+  {value:"team_spirit_all_drivers_hp_1",category:"Action cards",label:"Team Spirit",help:"All your Drivers gain +1 HP."},
+  {value:"steal_spotlight_steal_1_fare",category:"Action cards",label:"Steal the Spotlight",help:"Steal 1 Fare from another Driver."},
+  {value:"total_chaos_cycle_1_all",category:"Action cards",label:"Total Chaos",help:"Everyone discards 1 card, then draws 1."},
+  {value:"extra_turn_extra_action",category:"Action cards",label:"Extra Turn",help:"Take another Action immediately."},
 ] as const
 export type BattleEffect = (typeof battleEffectOptions)[number]['value']
-export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start','Original characters'] as const
+export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start','Original characters','Action cards'] as const
 export type CardKind = 'driver' | 'action'
 export type CardStatus = 'draft' | 'published' | 'retired'
 export type OfficialCard = {
