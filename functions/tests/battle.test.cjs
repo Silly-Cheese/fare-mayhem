@@ -9,3 +9,14 @@ test('official cards are playable with server-owned preset effects',()=>{const c
 test('invalid effect metadata is rejected',()=>{assert.equal(officialBattleCard('test',{status:'published',kind:'driver',cost:1,attack:1,health:1,effectKey:'arbitrary_js'}),null)})
 test('version increments only after legal player moves',()=>{const s=createBattle([],()=>0.3);s.player.hand=['surge'];s.player.fare=1;const n=applyCommand(s,{type:'play',index:0});assert.equal(n.version,s.version+1);assert.equal(n.player.fare,3);assert.equal(s.player.fare,1);assert.equal(applyCommand(s,{type:'play',index:999}),null)})
 test('fatigue and victory condition',()=>{let s=createBattle([],()=>0.2);s.player.deck=[];s.player.reputation=1;s=endTurn(endTurn(s));assert.equal(s.winner,'opponent')})
+
+test('Phase 4 official collection deck replaces only the player training cards',()=>{
+  const official=Array.from({length:9},(_,i)=>officialBattleCard('officialcard'+i,{status:'published',kind:'driver',name:'Driver '+i,nickname:'',cost:2,attack:2,health:2,rarity:'standard',stars:2,effectKey:'none'}))
+  const ids=official.flatMap((c,i)=>Array(i===8?1:3).fill(c.id))
+  const match=createBattle(official,()=>0.42,ids)
+  assert.equal(ids.length,25)
+  assert.ok(match.player.hand.concat(match.player.deck).every(id=>id.startsWith('official_')))
+  assert.equal(match.player.deck.length+match.player.hand.length,25)
+  assert.ok(match.opponent.hand.concat(match.opponent.deck).every(id=>!id.startsWith('official_')))
+  assert.throws(()=>createBattle(official,()=>0.42,[...ids.slice(0,24),'missingcard123']),/Invalid owned practice deck/)
+})
