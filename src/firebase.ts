@@ -4,6 +4,9 @@ import { getFirestore, doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getFunctions } from 'firebase/functions'
 
+// Keep Firebase's hosted authDomain for Google sign-in helper redirects.
+// Add fare-mayhem.com under Firebase Authentication > Settings > Authorized domains.
+// GitHub Pages itself does not host Firebase's /__/auth/ endpoints.
 const app = initializeApp({
   apiKey: 'AIzaSyBgQU6mzSqZi-QD9-c-etav4zg2LiR3heY',
   authDomain: 'fare-mayhem.firebaseapp.com',
