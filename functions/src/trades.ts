@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { getAuth } from 'firebase-admin/auth'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore, type DocumentReference } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 const db=()=>getFirestore(),region='us-central1'
 type Part={id:string;qty:number}
@@ -59,7 +59,7 @@ export const respondTradeOffer=onCall({region,maxInstances:6,enforceAppCheck:fal
     const change=(user:string,id:string,quantity:number)=>{const key=`${user}/${id}`;delta.set(key,(delta.get(key)||0)+quantity)}
     for(const c of offered){change(trade.senderUid,c.id,-c.qty);change(trade.recipientUid,c.id,c.qty)}
     for(const c of requested){change(trade.recipientUid,c.id,-c.qty);change(trade.senderUid,c.id,c.qty)}
-    const changes:{ref:ReturnType<typeof db.doc>;quantity:number}[]=[]
+    const changes:{ref:DocumentReference;quantity:number}[]=[]
     for(const [key,adjust] of delta){
       const slash=key.indexOf('/'),user=key.slice(0,slash),cardId=key.slice(slash+1)
       const ref=db().doc(`playerCollections/${user}/cards/${cardId}`),owned=await tx.get(ref)
