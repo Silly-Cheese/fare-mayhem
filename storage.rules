@@ -20,6 +20,13 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow update, delete: if false;
     }
+    match /card-art/{cardId}/finished/{fileName} {
+      allow read: if isSingleOwner();
+      allow create: if isSingleOwner()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
     match /{allPaths=**} { allow read, write: if false; }
   }
 }
