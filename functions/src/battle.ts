@@ -60,12 +60,12 @@ function defeatedUnits(s:BattleState,side:Side) {
   }
   checkWinner(s)
 }
-function effect(s:BattleState,side:Side,what:Effect) {
+function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driver') {
   const p=s[side],foe=s[side==='player'?'opponent':'player']
   const enemySide:Side=side==='player'?'opponent':'player'
   const justPlayed=p.board.at(-1)
   const enemy=()=>foe.board.find(u=>!u.untargetable)
-  if(p.abilitiesDisabled && what!=='none' && what!=='discount_self_cost_1')return
+  if(p.abilitiesDisabled && kind==='driver' && what!=='none' && what!=='discount_self_cost_1')return
   switch(what){
     case 'steal_fare_1':case 'steal_fare_2':{
       const n=Math.min(Number(what.slice(-1)),foe.fare,10-p.fare);foe.fare-=n;p.fare+=n;break
@@ -75,7 +75,7 @@ function effect(s:BattleState,side:Side,what:Effect) {
     case 'heal_reputation_1':case 'heal_reputation_2':case 'heal_reputation_4':case 'heal_reputation_6':
       p.reputation=Math.min(20,p.reputation+Number(what.slice(-1)));break
     case 'deal_driver_2':case 'deal_driver_3':case 'deal_driver_5':
-      if(foe.board.length){damageUnit(foe.board[0],Number(what.slice(-1)));defeatedUnits(s,side==='player'?'opponent':'player')}
+      if(foe.board.length){const target=foe.board.find(u=>!u.untargetable);if(target){damageUnit(target,Number(what.slice(-1)));defeatedUnits(s,enemySide)}}
       else foe.reputation-=2
       break
     case 'draw_1':case 'draw_2':case 'draw_3':
@@ -175,11 +175,10 @@ function afterAttack(s:BattleState,side:Side,unit:BattleUnit){
 }
 function startTurnEffects(s:BattleState,side:Side){
   const fighter=s[side]
-  const blocked=!!fighter.cancelNextClock
-  if(blocked)fighter.cancelNextClock=0
   for(const unit of [...fighter.board]){
-    if(fighter.abilitiesDisabled||blocked||(unit.abilityLockTurns||0)>0){unit.abilityLockTurns=0;continue}
     const key=s.cards[unit.cardId]?.effect
+    if(fighter.abilitiesDisabled||(unit.abilityLockTurns||0)>0)continue
+    if((fighter.cancelNextClock||0)>0&&key?.startsWith('turn_')){fighter.cancelNextClock=0;continue}
     if(key==='turn_heal_reputation_1')s[side].reputation=Math.min(20,s[side].reputation+1)
     else if(key==='turn_gain_fare_1')s[side].fare=Math.min(10,s[side].fare+1)
     else if(key==='turn_buff_attack_1')unit.attackBonus=Math.min(5,(unit.attackBonus||0)+1)
@@ -190,7 +189,7 @@ export function effectiveFareCost(card:Pick<BattleCard,'cost'|'effect'>):number 
   return Math.max(0,card.cost-(card.effect==='discount_self_cost_1'?1:0))
 }
 export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)}
-export function play(s:BattleState,side:Side,index:number):BattleState|null{if(s.pendingChoice||!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0));if(c.kind==='driver'){p.nextDriverDiscount=0;p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false})}effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
+export function play(s:BattleState,side:Side,index:number):BattleState|null{if(s.pendingChoice||!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0));if(c.kind==='driver'){p.nextDriverDiscount=0;p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false})}effect(next,side,c.effect,c.kind);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
 export function chooseDiscard(s:BattleState,side:Side,index:number):BattleState|null{
   if(!s.pendingChoice||s.pendingChoice.side!==side||s.turn!==side||!Number.isInteger(index))return null
   const foe=side==='player'?'opponent':'player'
@@ -230,7 +229,7 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
 }
 export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice)return s;const next=clone(s),outgoing:Side=next.turn,incoming:Side=outgoing==='player'?'opponent':'player';
   next[outgoing].abilitiesDisabled=false
-  for(const unit of next[outgoing].board){if((unit.attackDebuffTurns||0)>0){unit.attackDebuffTurns=(unit.attackDebuffTurns||0)-1;if(!unit.attackDebuffTurns)unit.attackDebuff=0}}
+  for(const unit of next[outgoing].board){unit.abilityLockTurns=0;if((unit.attackDebuffTurns||0)>0){unit.attackDebuffTurns=(unit.attackDebuffTurns||0)-1;if(!unit.attackDebuffTurns)unit.attackDebuff=0}}
   next.turn=incoming;
   next[incoming].abilitiesDisabled=!!next[incoming].disableNextTurn
   next[incoming].disableNextTurn=0
