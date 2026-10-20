@@ -51,7 +51,56 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
   checkWinner(next);return next
 }
 export function endTurn(s:BattleState):BattleState{if(s.winner)return s;const next=clone(s),incoming:Side=next.turn==='player'?'opponent':'player';next.turn=incoming;if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{u.ready=true});draw(next,incoming);log(next,`${incoming==='player'?'Your':'Dispatch AI'} turn. Fare topped up.`);return next}
-export function aiTurn(s:BattleState):BattleState{if(s.turn!=='opponent'||s.winner)return s;let next=s;for(let i=0;i<8;i++){const possible=next.opponent.hand.map((id,index)=>({id,index})).filter(x=>canPlay(next,'opponent',x.index));if(!possible.length)break;const choice=possible.find(x=>next.cards[x.id].kind==='driver')??possible[0];const outcome=play(next,'opponent',choice.index);if(!outcome)break;next=outcome;if(next.winner)return next}for(const u of [...next.opponent.board]){if(!u.ready)continue;const target=next.player.board[0];next=attack(next,'opponent',u.id,target?.id)??next;if(next.winner)return next}return endTurn(next)}
+/**
+ * Dispatch AI takes a full, server-authoritative turn.
+ * It attacks with ready units, spends Fare, attacks with any remaining ready units,
+ * then passes control back to the human. Newly dispatched units cannot attack early.
+ */
+export function aiTurn(s:BattleState):BattleState{
+  if(s.turn!=='opponent'||s.winner)return s
+  let next=s
+  function attackReady(){
+    for(const original of [...next.opponent.board]){
+      const unit=next.opponent.board.find(x=>x.id===original.id)
+      if(!unit?.ready||next.winner)continue
+      // Pick a driver we can remove first; otherwise strike the weakest blocker.
+      const blockers=[...next.player.board].sort((a,b)=>{
+        const aKill=a.hp<=next.cards[unit.cardId].attack?0:1
+        const bKill=b.hp<=next.cards[unit.cardId].attack?0:1
+        return aKill-bKill||a.hp-b.hp
+      })
+      const target=blockers[0]
+      const outcome=attack(next,'opponent',unit.id,target?.id)
+      if(outcome)next=outcome
+    }
+  }
+  attackReady()
+  if(next.winner)return next
+  for(let i=0;i<12;i++){
+    const possible=next.opponent.hand.map((id,index)=>({id,index,card:next.cards[id]}))
+      .filter(({index})=>canPlay(next,'opponent',index))
+    if(!possible.length)break
+    // Prefer a useful driver while lanes are open, then effective actions.
+    const choice=possible
+      .map(p=>({ ...p, priority:
+        p.card.kind==='driver'?100+p.card.attack*4+p.card.health
+        :p.card.effect==='deal_driver_3'&&next.player.board.length?80
+        :p.card.effect==='deal_reputation_1'?70
+        :p.card.effect==='draw_2'?60
+        :p.card.effect==='gain_fare_3'?50
+        :p.card.effect.startsWith('heal_')&&next.opponent.reputation>=20?0:30
+      }))
+      .sort((a,b)=>b.priority-a.priority)[0]
+    if(!choice)break
+    const played=play(next,'opponent',choice.index)
+    if(!played)break
+    next=played
+    if(next.winner)return next
+  }
+  attackReady()
+  if(next.winner)return next
+  return endTurn(next)
+}
 export function applyCommand(s:BattleState,command:Command):BattleState|null{
   if(s.turn!=='player'||s.winner)return null
   let next:BattleState|null=null
