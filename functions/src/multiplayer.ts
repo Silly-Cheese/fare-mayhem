@@ -48,6 +48,17 @@ function visibleMatch(state:BattleState,side:Side){
     log:state.log
   }
 }
+/** Store a compact, private result for each participant. No browser may write these records. */
+function writePvpHistory(tx:Transaction,id:string,firstUid:string,secondUid:string,winner:Side,round:number,finishedAtMs:number){
+  for(const [uid,side,opponentUid] of [
+    [firstUid,'player',secondUid],
+    [secondUid,'opponent',firstUid]
+  ] as const){
+    tx.set(db().doc(`pvpHistory/${uid}/matches/${id}`),{
+      matchId:id,opponentUid,won:winner===side,rounds:round,finishedAtMs,mode:'unranked-pvp'
+    })
+  }
+}
 function projection(document:FirebaseFirestore.DocumentSnapshot,uid:string){
   if(!document.exists)throw new HttpsError('not-found','This PvP match does not exist.')
   const first=document.get('firstUid'),second=document.get('secondUid')
@@ -71,7 +82,9 @@ async function timedSnapshot(id:string,uid:string){
     const deadline=Number(current.get('turnDeadlineMs')||0)
     if(data.winner||Date.now()<deadline)return
     const winner:Side=data.turn==='player'?'opponent':'player'
-    tx.update(ref,{state:{...data,winner,version:data.version+1,log:['Time expired. The other dispatcher wins by forfeit.',...data.log].slice(0,24)},finishedAtMs:Date.now(),turnDeadlineMs:0,updatedAtMs:Date.now()})
+    const finishedAtMs=Date.now()
+    tx.update(ref,{state:{...data,winner,version:data.version+1,log:['Time expired. The other dispatcher wins by forfeit.',...data.log].slice(0,24)},finishedAtMs,turnDeadlineMs:0,updatedAtMs:finishedAtMs})
+    writePvpHistory(tx,id,current.get('firstUid'),current.get('secondUid'),winner,data.round,finishedAtMs)
   })
   return (await ref.get())
 }
@@ -176,7 +189,18 @@ export const takePvpAction=onCall({region,maxInstances:12,timeoutSeconds:35,enfo
     }
     const newDeadline=next.winner?0:(next.turn!==current.turn?now+TURN_TTL:Number(snap.get('turnDeadlineMs')))
     tx.update(ref,{state:next,updatedAtMs:now,turnDeadlineMs:newDeadline,...(next.winner?{finishedAtMs:now}:{})})
+    if(next.winner)writePvpHistory(tx,id,snap.get('firstUid'),snap.get('secondUid'),next.winner,next.round,now)
   })
   const snap=await ref.get()
   return projection(snap,uid)
+})
+
+/** Recent PvP match outcomes, visible only to the authenticated player. */
+export const getPvpHistory=onCall({region,maxInstances:6,enforceAppCheck:false},async request=>{
+  const uid=uidOf(request.auth)
+  const results=await db().collection(`pvpHistory/${uid}/matches`).orderBy('finishedAtMs','desc').limit(12).get()
+  return {matches:results.docs.map(d=>({
+    matchId:d.id,won:d.get('won')===true,rounds:Number(d.get('rounds')||0),
+    finishedAtMs:Number(d.get('finishedAtMs')||0)
+  }))}
 })
