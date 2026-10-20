@@ -20,7 +20,7 @@ export const listTradeOffers=onCall({region,maxInstances:5,enforceAppCheck:false
     db.collection('cardTrades').where('senderUid','==',uid).limit(20).get(),
     db.collection('cardTrades').where('recipientUid','==',uid).limit(20).get()
   ])
-  return{trades:[...sent.docs,...received.docs].map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs))}
+  return{trades:[...sent.docs,...received.docs].map(doc=>({id:doc.id,...(doc.data() as {createdAtMs?:number})})).sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs))}
 })
 export const createTradeOffer=onCall({region,maxInstances:4,enforceAppCheck:false},async request=>{
   const senderUid=player(request.auth),email=request.data?.email
