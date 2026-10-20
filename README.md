@@ -1,4 +1,4 @@
-# FARE MAYHEM — Phase 4
+# FARE MAYHEM — Phase 5
 
 **Five stars. Zero guarantees.** An original, cartoon-styled rideshare-driver trading card game. Phase 1 is a *functional training game*, not a multiplayer or collectible-card economy.
 
@@ -174,7 +174,7 @@ Choose the card list, then choose all relevant image files. **Filenames must mat
 - Players can save three deck slots, each requiring exactly **25 currently published official cards** with no more than **three copies per card**, and no more than the player actually owns. The server revalidates both ownership and publication when starting Secure Practice with an owned deck.
 - The optional owned deck is used for the **player's side** of secure practice; the computer still uses the controlled training deck. No ranked PvP yet.
 - The **Trading** tab lets a player address another registered player using their sign-in email. An offer has 1–5 distinct cards on each side (1–3 copies per item), lasts seven days, and requires explicit acceptance by its recipient. Each transfer occurs atomically in a Firestore transaction with fresh balance and release-status checks. Pending offers do not escrow inventory; an offer can fail if a participant spends the relevant copies before acceptance.
-- No real-world payments, real-money pack purchase, or cash-valued trading are included. Online head-to-head PvP remains future work.
+- No real-world payments, real-money pack purchase, or cash-valued trading are included. Online head-to-head PvP has since been added in Phase 5; see below.
 
 ### Deploy after fetching these commits
 
@@ -201,3 +201,38 @@ Collection and trade data is server-only by default under `playerCollections`, `
 
 Enable Firebase App Check and abuse monitoring; Cloud Functions are currently configured with `enforceAppCheck:false` for rollout/testing. Set cloud budget alerts, verify Auth provider settings, enforce adequate account rate limits, and test inventory/trading transactions with Firestore Emulator and multiple test users. A one-win-per-day reward cap does not prevent a person from opening multiple accounts. Firebase Blaze is usage-based and can generate charges even though the OpenAI illustration API has been removed.
 
+
+---
+
+## Phase 5 — online PvP, owner grants and deployment overhaul
+
+**Phase 5 is implemented in source and on GitHub Pages, but the live backend still requires an explicit manual Firebase Functions deployment.**
+
+- **Unranked online PvP:** verified signed-in players can match using a server-owned queue. Both players must have a saved 25-card deck containing only published official cards they actually own. Clients cannot invent card ownership or alter opponent turns.
+- **Private opponent hands:** Cloud Functions send each player their own hand/deck plus the rival's public board, reputation, counts and match log. The rival's hand and deck order are not returned.
+- **Server-authoritative gameplay:** turn order, Fare, effects, driver combat, fatigue, forfeits, timed turns, and winning are verified on Cloud Functions with optimistic revision checks. A four-minute turn deadline and five-minute matchmaking queue expiry apply. Matches are unranked and don't mint rewards.
+- **History:** completed matches have a private recent history showing victories, defeats and rounds. The history is written by trusted backend transactions. You cannot change results in the browser.
+- **Owner-only card issuance:** Card Studio → **Player Card Grants** can distribute published official cards by registered Firebase email, with an administrator confirmation and audit trail. The owner can also issue a balanced 25-card test collection across nine or more real published cards, no more than three copies of any one card. This avoids weeks of daily grinding before testing PvP with a second account. There is still only **one system owner**.
+- **Practice AI:** the server's computer opponent prioritizes attacks with ready drivers, chooses blockers strategically, plays valid drivers/actions, and returns the turn. Regression tests verify it can damage human Reputation and defeat blockers. A just-played driver must wait before attacking.
+- **Mobile usability:** five-item mobile navigation no longer wraps to a second row; mobile headers and battle card scrolling are adjusted.
+- **Error handling:** failed Firebase callable requests now give actionable feedback rather than only `internal`. CORS failures during preflight commonly indicate an inaccessible or undeployed Function, not a permission problem in Firestore rules.
+- **No paid OpenAI dependency:** manual original and cartoon artwork uploads replace the old optional generation service. The obsolete `generateCartoonArtwork` callable may remain deployed from earlier versions until intentionally removed.
+- **Critical deployment repair:** `firebase.json` now runs `functions` TypeScript compilation automatically before a Functions deployment. This prevents the old compiled `functions/lib` from erroneously prompting for an OpenAI key.
+
+### Deploy Phase 5 correctly on Windows
+
+Follow **[PHASE5_DEPLOY_WINDOWS.md](./PHASE5_DEPLOY_WINDOWS.md)** for the complete step-by-step PowerShell procedure, Cloud Functions diagnostics and testing checklist.
+
+```powershell
+cd "C:\Users\Owner\Documents\fare-mayhem"
+git pull --ff-only origin main
+npm.cmd --prefix functions install
+npm.cmd --prefix functions run test
+firebase.cmd use fare-mayhem
+firebase.cmd deploy --only "firestore:rules"
+firebase.cmd deploy --only storage
+firebase.cmd deploy --only functions
+firebase.cmd functions:list
+```
+
+Cloud Functions still cost Google Cloud/Firebase Blaze usage. Do not weaken rules or make inventory publicly writable to "fix" a callable CORS error. Verify Functions are deployed and inspect their logs instead. Before inviting a large public audience, perform manual multi-account integration tests and enable App Check, monitoring, rate limits and suitable billing alerts.
