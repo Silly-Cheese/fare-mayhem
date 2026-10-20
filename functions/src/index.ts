@@ -199,4 +199,4 @@ export { getCollectionDashboard, saveCollectionDeck } from './collection'
 
 export { listTradeOffers, createTradeOffer, respondTradeOffer } from './trades'
 
-export { joinPvpQueue, leavePvpQueue, getPvpStatus, takePvpAction } from './multiplayer'
+export { joinPvpQueue, leavePvpQueue, getPvpStatus, takePvpAction, getPvpHistory } from './multiplayer'
