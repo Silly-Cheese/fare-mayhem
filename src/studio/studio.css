@@ -13,3 +13,25 @@
 
 /* Phase 6 finished card uses the uploaded 5:7 image as the entire card, no second card frame. */
 .official-card.finished-card{aspect-ratio:5/7;padding:0;border:0;background:transparent;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px #0009}.official-card.finished-card.transcendent{background:transparent;border:0}.official-card.finished-card .finished-card-image{width:100%;height:100%;display:block;object-fit:contain;pointer-events:none}.studio-preview .finished-card{max-width:360px;margin:auto}.published-inspection .finished-card{max-width:360px}.studio-form .finished-card-guide{color:#edc988}@media(max-width:650px){.studio-preview .finished-card{max-width:280px}}
+
+/* Phase 6 Option B: direct 5:7 finished-card mass import. */
+.finished-batch-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.finished-batch-tabs button{border:1px solid #465a5d;border-radius:10px;background:#223339;color:#d8e5e2;padding:11px 16px;font-weight:800;cursor:pointer}
+.finished-batch-tabs button.active{background:#423829;color:#ffdc96;border-color:#d6ad62}
+.finished-batch-intro{display:flex;gap:15px;align-items:flex-start;border:1px solid #45585a;background:#1d2d30;border-radius:14px;padding:15px;margin-bottom:17px;color:#efd193}
+.finished-batch-intro h3{margin:0 0 6px;font-size:19px;color:#f5e3bb}
+.finished-batch-intro p{margin:0;color:#b9cbcb;font-size:12px;line-height:1.65}
+.finished-batch-totals{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0;color:#d6dcd8;font-size:12px}
+.finished-batch-totals>span{border:1px solid #40545b;border-radius:9px;padding:7px 10px}
+.finished-batch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;max-height:760px;overflow:auto;margin-bottom:16px;padding:2px}
+.finished-batch-row{display:grid;grid-template-columns:95px minmax(0,1fr);gap:12px;border:1px solid #465b61;border-radius:13px;background:#17272b;padding:12px;align-items:start}
+.finished-batch-row.invalid{border-color:#be7167}
+.finished-batch-image{border:1px solid #a98b56;border-radius:9px;overflow:hidden;aspect-ratio:5/7;background:#384748;display:grid;place-items:center;color:#ffd997}
+.finished-batch-image img{width:100%;height:100%;object-fit:contain}
+.finished-batch-fields{display:flex;flex-direction:column;gap:9px;min-width:0}
+.finished-batch-fields>b{font-size:11px;color:#edc782;overflow-wrap:anywhere}
+.finished-batch-fields label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#b8c9c8}
+.finished-batch-fields input,.finished-batch-fields select,.finished-batch-fields textarea{width:100%;min-width:0;background:#25393d;color:#fff;border:1px solid #4a6064;border-radius:8px;padding:9px;font-size:12px}
+.finished-batch-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.finished-batch-row .studio-warning{font-size:10px;margin:0}
+@media(max-width:620px){.finished-batch-grid{grid-template-columns:1fr;max-height:none}.finished-batch-row{grid-template-columns:83px minmax(0,1fr);gap:9px;padding:9px}.finished-batch-tabs button{flex:1;font-size:11px}}
