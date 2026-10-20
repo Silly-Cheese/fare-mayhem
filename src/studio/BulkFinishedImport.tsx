@@ -12,8 +12,6 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
   const [progress,setProgress]=useState(0)
   const [previews,setPreviews]=useState<Record<string,string>>({})
   useEffect(()=>{
-    const urls:Object=Object
-    void urls
     const next:Record<string,string>={}
     for(const item of items)next[item.key]=URL.createObjectURL(item.file)
     setPreviews(next)
@@ -38,7 +36,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
       rows.push({key,file,card:{...initialCard,name},valid,message})
     }
     setItems(rows)
-    setMessage(`${rows.length} complete card images selected. ${rows.length-invalid} valid dimensions. Review every card's name, stars, cost, stats and effect before uploading. Nothing is published automatically.`.replace(String(rows.length-invalid),String(rows.filter(x=>x.valid).length)))
+    setMessage(`${rows.length} finished cards selected. ${rows.filter(x=>x.valid).length} valid dimensions. Review every card's name, rating, Fare and special ability. Nothing is published automatically.`)
   }
   function edit(index:number,key:keyof EditableCard,value:unknown){setItems(old=>old.map((item,i)=>i===index?changed(item,key,value):item))}
   async function run(){
