@@ -14,7 +14,7 @@ function parts(input:unknown):Part[]{
     seen.add(part.id);return{id:part.id,qty:part.qty}
   })
 }
-export const listTradeOffers=onCall({region,invoker:'public',maxInstances:5,enforceAppCheck:false},async request=>{
+export const listTradeOffers=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:5,enforceAppCheck:false},async request=>{
   const uid=player(request.auth)
   const [sent,received]=await Promise.all([
     db().collection('cardTrades').where('senderUid','==',uid).limit(20).get(),
@@ -22,7 +22,7 @@ export const listTradeOffers=onCall({region,invoker:'public',maxInstances:5,enfo
   ])
   return{trades:[...sent.docs,...received.docs].map(doc=>({id:doc.id,...(doc.data() as {createdAtMs?:number})})).sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs))}
 })
-export const createTradeOffer=onCall({region,invoker:'public',maxInstances:4,enforceAppCheck:false},async request=>{
+export const createTradeOffer=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:4,enforceAppCheck:false},async request=>{
   const senderUid=player(request.auth),email=request.data?.email
   if(typeof email!=='string'||email.length>254||!/^\S+@\S+\.\S+$/.test(email.trim()))throw new HttpsError('invalid-argument','Enter another registered player’s email.')
   const offered=parts(request.data?.offered),requested=parts(request.data?.requested)
@@ -40,7 +40,7 @@ export const createTradeOffer=onCall({region,invoker:'public',maxInstances:4,enf
   })
   return{id}
 })
-export const respondTradeOffer=onCall({region,invoker:'public',maxInstances:6,enforceAppCheck:false},async request=>{
+export const respondTradeOffer=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:6,enforceAppCheck:false},async request=>{
   const uid=player(request.auth),id=request.data?.id,action=request.data?.action
   if(!good(id)||!['accept','decline','cancel'].includes(action))throw new HttpsError('invalid-argument','Invalid trade response.')
   await db().runTransaction(async tx=>{
