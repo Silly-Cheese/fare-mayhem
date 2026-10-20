@@ -36,9 +36,29 @@ export const battleEffectOptions = [
   {value:"turn_heal_reputation_1",category:"Turn start",label:"Heal each turn",help:"At the beginning of your turn while this driver survives: restore 1 Reputation."},
   {value:"turn_gain_fare_1",category:"Turn start",label:"Collect a Fare each turn",help:"At the beginning of your turn while this driver survives: gain 1 Fare."},
   {value:"turn_buff_attack_1",category:"Turn start",label:"Grow in Attack each turn",help:"At the beginning of your turn while this driver survives: gain +1 Attack (max +5 bonus)."},
+  {value:"summon_beetle_1_1",category:"Original characters",label:"Beetle Boy · summon a Beetle",help:"On arrival: summon a 1 Attack / 1 HP Beetle into an empty friendly lane."},
+  {value:"invisible_first_hit_shield",category:"Original characters",label:"Invisible Man · evade first damage",help:"Prevent the first damage this Driver would take, then lose the protection."},
+  {value:"death_deal_3_damage",category:"Original characters",label:"Death · 3 damage",help:"On arrival: deal 3 damage to an opposing Driver (first eligible target)."},
+  {value:"third_eye_reveal_discard_1",category:"Original characters",label:"Third-Eye · hand disruption",help:"On arrival: reveal the opponent's hand and discard one card (targeting interface required for player choice)."},
+  {value:"dwarf_jar_fare_1_heal_2",category:"Original characters",label:"The Dwarf · jar bonus",help:"On arrival: gain 1 Fare and restore 2 HP to this Driver."},
+  {value:"diva_silence_next_clock",category:"Original characters",label:"The Diva · cancel next Clock ability",help:"On arrival: prevent the opposing side's next turn-start Driver effect."},
+  {value:"logan_drum_heal_1_rep_1",category:"Original characters",label:"Logan Francis · drumbeat",help:"On arrival: restore 1 HP to this Driver and 1 Reputation."},
+  {value:"toddler_confuse_next_turn",category:"Original characters",label:"Toddler · disable abilities next turn",help:"On arrival: prevent opposing Driver abilities during its next turn."},
+  {value:"jim_boring_reputation_1_and_untargetable",category:"Original characters",label:"Jim · Reputation and protection",help:"On arrival: gain 1 Reputation. Opposing abilities cannot target Jim until your next turn."},
+  {value:"madhatter_chaos_draw_and_blast",category:"Original characters",label:"Mad Hatter · chaotic draw",help:"On arrival: both players draw 1 card, then deal 2 damage to a random opposing Driver."},
+  {value:"sun_solar_flare_all_5",category:"Original characters",label:"The Sun · solar flare",help:"On arrival: deal 5 damage to every other Driver on the board."},
+  {value:"centipede_lifesteal_2",category:"Original characters",label:"Human Centipede · drain HP",help:"On arrival: deal 2 damage to an opposing Driver and restore 2 HP to this Driver."},
+  {value:"george_polite_rep_2_discount_1",category:"Original characters",label:"George Williamson · polite discount",help:"On arrival: gain 2 Reputation. Your next Driver costs 1 less Fare."},
+  {value:"trump_boast_fare_3_rep_minus_2",category:"Original characters",label:"Trump · boast",help:"On arrival: gain 3 Fare and lose 2 Reputation."},
+  {value:"bob_awkward_stare_attack_minus_2",category:"Original characters",label:"Bob · awkward stare",help:"On arrival: an opposing Driver gets −2 Attack through its next turn."},
+  {value:"ja_candy_fare_1_heal_1",category:"Original characters",label:"Ja · candy jar",help:"On arrival: gain 1 Fare and restore 1 HP to a friendly Driver."},
+  {value:"divine_judgment_resurrection",category:"Original characters",label:"God · divine judgment",help:"On arrival: destroy opposing Drivers, fully heal friendlies, draw 5, gain 10 Fare; revive once at full HP. Limit one per deck."},
+  {value:"fish_boy_slipstream_shield_2",category:"Original characters",label:"Fish Boy · slipstream",help:"On arrival: gain 1 Fare and shield this Driver from the next 2 damage."},
+  {value:"prof_khashed_precalc_confusion",category:"Original characters",label:"Prof. Khashed · precalc confusion",help:"On arrival: opponent loses 1 Fare; suppress the active opposing Driver's next ability."},
+  {value:"beatrice_swarm_lifesteal_2",category:"Original characters",label:"Beatrice · swarm",help:"On arrival: deal 2 damage to an opposing Driver and restore 2 HP to Beatrice."},
 ] as const
 export type BattleEffect = (typeof battleEffectOptions)[number]['value']
-export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start'] as const
+export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start','Original characters'] as const
 export type CardKind = 'driver' | 'action'
 export type CardStatus = 'draft' | 'published' | 'retired'
 export type OfficialCard = {
@@ -75,5 +95,5 @@ export const initialCard: EditableCard = {
   originalUrl: '', originalStoragePath: '', cartoonUrl: '', cartoonStoragePath: '', finishedUrl: '', finishedStoragePath: ''
 }
 export function ratingLabel(card: Pick<OfficialCard, 'rarity' | 'stars' | 'transcendentLabel'>) {
-  return card.rarity === 'transcendent' ? card.transcendentLabel || '???' : '★'.repeat(card.stars) + '☆'.repeat(5 - card.stars)
+  return card.rarity === 'transcendent' ? card.transcendentLabel || '???' : '★'.repeat(Math.max(0,Math.min(5,card.stars))) + '☆'.repeat(Math.max(0,5-card.stars))
 }

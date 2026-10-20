@@ -4,6 +4,11 @@ import {battleEffectCategories,battleEffectOptions,initialCard,type EditableCard
 import {saveOfficialCard,uploadArtwork,validateFinishedCardImage} from './api'
 
 type Item={key:string;file:File;card:EditableCard;valid:boolean;message:string}
+const originalMetadata:Record<string,Partial<EditableCard>> = {
+  "jim":{effectKey:"jim_boring_reputation_1_and_untargetable",ability:"On arrival: gain 1 Reputation. Opposing abilities cannot target Jim until your next turn."},
+  "george williamson":{effectKey:"george_polite_rep_2_discount_1",ability:"On arrival: gain 2 Reputation. Your next Driver costs 1 less Fare."},
+  "fish boy":{effectKey:"fish_boy_slipstream_shield_2",ability:"On arrival: gain 1 Fare and shield this Driver from the next 2 damage."},
+}
 const nameFromFile=(filename:string)=>filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().slice(0,70)
 const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,card:{...item.card,[key]:value}})
 /** Reviewed suggestions for cards whose printed effect is legible in the sample.
@@ -11,9 +16,9 @@ const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,c
  */
 function suggestedFromFilename(name:string):Partial<EditableCard> {
   switch(name.toLowerCase()){
-    case 'fish boy':return {nickname:'The Aquatic Oddball',stars:2,cost:3,health:5,effectKey:'gain_fare_1',ability:'On arrival: slip through traffic and gain 1 Fare.'}
-    case 'jim':return {nickname:'The Middle-Class Bore',stars:1,cost:1,health:3,effectKey:'discount_self_cost_1',ability:'This card costs 1 less Fare to play.'}
-    case 'george williamson':return {stars:4,cost:3,health:5,flavor:'A strangely cheerful gentleman whose perfect manners somehow make this ride creepier.'}
+    case 'fish boy':return {nickname:'The Aquatic Oddball',stars:2,cost:3,attack:3,health:5,effectKey:'fish_boy_slipstream_shield_2',ability:'On arrival: gain 1 Fare. Prevent the next 2 damage dealt to Fish Boy.'}
+    case 'jim':return {nickname:'The Middle-Class Bore',stars:1,cost:1,attack:1,health:3,effectKey:'jim_boring_reputation_1_and_untargetable',ability:'On arrival: gain 1 Reputation. Jim cannot be targeted by opposing abilities until your next turn.'}
+    case 'george williamson':return {nickname:'The Uncanny Gentleman',stars:5,cost:3,attack:3,health:5,effectKey:'george_polite_rep_2_discount_1',ability:'On arrival: gain 2 Reputation. The next Driver you play costs 1 less Fare.'}
     default:return {}
   }
 }

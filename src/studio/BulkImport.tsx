@@ -36,14 +36,14 @@ export function parseCards(text:string,name:string):Entry[]{
     const card:EditableCard={
       ...initialCard,name:clean(r.name),nickname:clean(r.nickname),
       kind:clean(r.kind||'driver') as EditableCard['kind'],
-      rarity:clean(r.rarity||'standard') as EditableCard['rarity'],
-      stars:numberOr(r.stars,1),transcendentLabel:clean(r.transcendentLabel||'???'),
+      rarity:clean(r.rarity==='divine'?'transcendent':r.rarity||(Number(r.stars)>5||Number(r.stars)===0?'transcendent':'standard')) as EditableCard['rarity'],
+      stars:numberOr(r.stars,1),transcendentLabel:clean(r.transcendentLabel||(r.specialRating==='sun'?'☀':Number(r.stars)>5?`★${r.stars}`:'???')),
       cost:numberOr(r.cost,2),attack:numberOr(r.attack,2),health:numberOr(r.health,3),
       ability:clean(r.ability),flavor:clean(r.flavor),customerReview:clean(r.customerReview),
       edition:clean(r.edition||'First Edition'),
       effectKey:clean(r.effectKey||'none') as EditableCard['effectKey']
     }
-    if(!card.name||card.name.length>70||!card.ability||card.ability.length>360||card.edition.length>60||!['driver','action'].includes(card.kind)||!['standard','transcendent'].includes(card.rarity)||!Number.isInteger(card.stars)||card.stars<1||card.stars>5||!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>30||!['???','∞','UNRATED'].includes(card.transcendentLabel)||!battleEffectOptions.some(x=>x.value===card.effectKey))throw Error(`Row ${i+1}: invalid card details. Check names, stats and effectKey.`)
+    if(!card.name||card.name.length>70||!card.ability||card.ability.length>360||card.edition.length>60||!['driver','action'].includes(card.kind)||!['standard','transcendent'].includes(card.rarity)||!Number.isInteger(card.stars)||card.stars<0||card.stars>10||(card.rarity==='standard'&&(card.stars<1||card.stars>5))||!Number.isInteger(card.cost)||card.cost<0||card.cost>10||!Number.isInteger(card.attack)||card.attack<0||card.attack>30||!Number.isInteger(card.health)||card.health<1||card.health>30||!['???','∞','UNRATED','☀','★6','★10'].includes(card.transcendentLabel)||!battleEffectOptions.some(x=>x.value===card.effectKey))throw Error(`Row ${i+1}: invalid card details. Check names, stats and effectKey.`)
     const key=`${card.name.toLowerCase()}::${card.edition.toLowerCase()}`
     if(seen.has(key))throw Error(`Duplicate name/edition in row ${i+1}`)
     seen.add(key)
@@ -77,7 +77,7 @@ export function BulkImport({onClose}:{onClose:()=>void}){
           const merged:EditableCard=prior?{...row.card,originalUrl:prior.originalUrl,originalStoragePath:prior.originalStoragePath,cartoonUrl:prior.cartoonUrl,cartoonStoragePath:prior.cartoonStoragePath,finishedUrl:prior.finishedUrl||'',finishedStoragePath:prior.finishedStoragePath||''}:row.card
           const id=await saveOfficialCard(merged,prior?.id)
           for(const type of ['original','cartoon','finished'] as const){
-            const filename=type==='original'?row.originalFile:type==='cartoon'?row.cartoonFile:row.finishedFile
+            const filename=type==='original'?row.originalFile:type==='cartoon'?row.cartoonFile:row.finishedFile||files.find(f=>f.name.replace(/\.[^.]+$/,'').trim().toLowerCase()===row.card.name.trim().toLowerCase())?.name||''
             if(!filename)continue
             const image=find(filename)!
             const result=await uploadArtwork(id,image,()=>{},type)

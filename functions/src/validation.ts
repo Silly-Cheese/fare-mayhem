@@ -18,12 +18,13 @@ export function validateCard(data: unknown): SafeCard {
   const rarity = v.rarity
   if (kind !== 'driver' && kind !== 'action') throw Error('Invalid card type.')
   if (rarity !== 'standard' && rarity !== 'transcendent') throw Error('Invalid rarity.')
-  const stars = numberField(v,'stars',1,5)
+  const stars = numberField(v,'stars',0,10)
+  if(rarity==='standard' && (stars<1||stars>5)) throw Error('Standard cards must have 1–5 stars.')
   const transcendentLabel = field(v,'transcendentLabel',12)
   const effectKey:Effect = v.effectKey === undefined ? 'none' : (v.effectKey as Effect)
   if (!EFFECTS.includes(effectKey)) throw Error('Invalid playable battle effect.')
   if (kind === 'action' && (effectKey.startsWith('attack_') || effectKey.startsWith('defeat_') || effectKey.startsWith('turn_'))) throw Error('This ability trigger requires a driver card.')
-  if (!['???','∞','UNRATED'].includes(transcendentLabel)) throw Error('Invalid special rating.')
+  if (!['???','∞','UNRATED','☀','★6','★10'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
     name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
     cost:numberField(v,'cost',0,10),attack:numberField(v,'attack',0,30),health:numberField(v,'health',1,30),
