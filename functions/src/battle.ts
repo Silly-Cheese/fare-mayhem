@@ -303,7 +303,7 @@ export function officialBattleCard(id:string,card:Record<string,unknown>):Battle
   const effectKey=card.effectKey??'none'
   if(!EFFECTS.includes(effectKey as Effect))return null
   const cost=Number(card.cost),attack=Number(card.attack),health=Number(card.health)
-  if(!Number.isInteger(cost)||cost<0||cost>10||!Number.isInteger(attack)||attack<0||attack>30||!Number.isInteger(health)||health<1||health>30)return null
+  if(!Number.isInteger(cost)||cost<0||cost>10||!Number.isInteger(attack)||attack<0||attack>30||!Number.isInteger(health)||health<1||health>50)return null
   const name=typeof card.name==='string'?card.name.slice(0,70):'Unknown driver'
   return {id,name,nickname:typeof card.nickname==='string'?card.nickname.slice(0,70):'',kind:card.kind as 'driver'|'action',cost,attack,health,effect:effectKey as Effect,imageUrl:typeof card.finishedUrl==='string'&&card.finishedUrl?card.finishedUrl:typeof card.cartoonUrl==='string'&&card.cartoonUrl?card.cartoonUrl:typeof card.originalUrl==='string'?card.originalUrl:'',fullCard:typeof card.finishedUrl==='string'&&!!card.finishedUrl,rating:card.rarity==='transcendent'?String(card.transcendentLabel||'???'):'★'.repeat(Math.max(1,Math.min(5,Number(card.stars)||1))),source:'official'}
 }
