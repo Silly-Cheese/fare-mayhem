@@ -166,6 +166,7 @@ function effect(s:BattleState,side:Side,what:Effect) {
 function afterAttack(s:BattleState,side:Side,unit:BattleUnit){
   const key=s.cards[unit.cardId]?.effect
   const p=s[side],foe=s[side==='player'?'opponent':'player']
+  if(p.abilitiesDisabled||(unit.abilityLockTurns||0)>0)return
   if(key==='attack_heal_reputation_1')p.reputation=Math.min(20,p.reputation+1)
   else if(key==='attack_steal_fare_1'){const n=Math.min(1,foe.fare,10-p.fare);foe.fare-=n;p.fare+=n}
   else if(key==='attack_draw_1')draw(s,side,1)
@@ -173,7 +174,11 @@ function afterAttack(s:BattleState,side:Side,unit:BattleUnit){
   checkWinner(s)
 }
 function startTurnEffects(s:BattleState,side:Side){
-  for(const unit of [...s[side].board]){
+  const fighter=s[side]
+  const blocked=!!fighter.cancelNextClock
+  if(blocked)fighter.cancelNextClock=0
+  for(const unit of [...fighter.board]){
+    if(fighter.abilitiesDisabled||blocked||(unit.abilityLockTurns||0)>0){unit.abilityLockTurns=0;continue}
     const key=s.cards[unit.cardId]?.effect
     if(key==='turn_heal_reputation_1')s[side].reputation=Math.min(20,s[side].reputation+1)
     else if(key==='turn_gain_fare_1')s[side].fare=Math.min(10,s[side].fare+1)
@@ -184,10 +189,10 @@ function startTurnEffects(s:BattleState,side:Side){
 export function effectiveFareCost(card:Pick<BattleCard,'cost'|'effect'>):number {
   return Math.max(0,card.cost-(card.effect==='discount_self_cost_1'?1:0))
 }
-export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=effectiveFareCost(c)&&(c.kind==='action'||p.board.length<3)}
-export function play(s:BattleState,side:Side,index:number):BattleState|null{if(!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=effectiveFareCost(c);if(c.kind==='driver')p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false});effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
+export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)}
+export function play(s:BattleState,side:Side,index:number):BattleState|null{if(s.pendingChoice||!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0));if(c.kind==='driver'){p.nextDriverDiscount=0;p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false})}effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
 export function attack(s:BattleState,side:Side,attackerId:string,targetId?:string):BattleState|null{
-  if(s.turn!==side||s.winner)return null
+  if(s.turn!==side||s.winner||s.pendingChoice)return null
   const source=s[side].board.find(u=>u.id===attackerId)
   const foe=s[side==='player'?'opponent':'player']
   if(!source?.ready)return null
@@ -197,10 +202,10 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
   const enemySide:Side=side==='player'?'opponent':'player'
   const defender=next[enemySide]
   att.ready=false
-  const power=next.cards[att.cardId].attack+(att.attackBonus||0)
+  const power=Math.max(0,next.cards[att.cardId].attack+(att.attackBonus||0)-(att.attackDebuff||0))
   if(defender.board.length){
     const target=defender.board.find(u=>u.id===targetId)!
-    const counter=next.cards[target.cardId].attack+(target.attackBonus||0)
+    const counter=Math.max(0,next.cards[target.cardId].attack+(target.attackBonus||0)-(target.attackDebuff||0))
     const targetName=next.cards[target.cardId].name
     damageUnit(target,power);damageUnit(att,counter)
     log(next,`${next.cards[att.cardId].name} struck ${targetName} for ${power}, taking ${counter} in return.`)
@@ -214,7 +219,13 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
   checkWinner(next)
   return next
 }
-export function endTurn(s:BattleState):BattleState{if(s.winner)return s;const next=clone(s),incoming:Side=next.turn==='player'?'opponent':'player';next.turn=incoming;if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
+export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice)return s;const next=clone(s),outgoing:Side=next.turn,incoming:Side=outgoing==='player'?'opponent':'player';
+  next[outgoing].abilitiesDisabled=false
+  for(const unit of next[outgoing].board){if((unit.attackDebuffTurns||0)>0){unit.attackDebuffTurns=(unit.attackDebuffTurns||0)-1;if(!unit.attackDebuffTurns)unit.attackDebuff=0}}
+  next.turn=incoming;
+  next[incoming].abilitiesDisabled=!!next[incoming].disableNextTurn
+  next[incoming].disableNextTurn=0
+  for(const unit of next[incoming].board){if(unit.untargetable)unit.untargetable=false}if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
 /**
  * Dispatch AI takes a full, server-authoritative turn.
  * It attacks with ready units, spends Fare, attacks with any remaining ready units,
