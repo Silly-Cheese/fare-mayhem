@@ -17,7 +17,7 @@ export const getCollectionDashboard=onCall({region,invoker:'public',maxInstances
   return {
     inventory:inventory.docs.map(x=>({id:x.id,quantity:Number(x.get('quantity'))||0})),
     decks:decks.docs.map(x=>({slot:Number(x.get('slot')),name:String(x.get('name')||''),ids:x.get('ids')||[]})),
-    cards:cards.docs.map(x=>({id:x.id,name:String(x.get('name')||''),nickname:String(x.get('nickname')||''),rarity:x.get('rarity'),stars:x.get('stars'),kind:x.get('kind'),imageUrl:x.get('cartoonUrl')||x.get('originalUrl')||''}))
+    cards:cards.docs.map(x=>({id:x.id,name:String(x.get('name')||''),nickname:String(x.get('nickname')||''),rarity:x.get('rarity'),stars:x.get('stars'),kind:x.get('kind'),imageUrl:x.get('finishedUrl')||x.get('cartoonUrl')||x.get('originalUrl')||''}))
   }
 })
 export const saveCollectionDeck=onCall({region,invoker:'public',maxInstances:4,enforceAppCheck:false},async request=>{
