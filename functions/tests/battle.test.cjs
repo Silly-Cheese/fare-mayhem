@@ -74,3 +74,61 @@ test('Phase 5 matches two private 25-card official decks without using demo card
   assert.equal(after.turn,'opponent')
   assert.ok(after.log[0].includes('Dispatcher 2'))
 })
+
+test('Phase 6 arrival effects change server-owned combat state',()=>{
+  const state=createBattle([],()=>0.3)
+  state.cards.burst={...state.cards.surge,id:'burst',cost:1,effect:'deal_reputation_3'}
+  state.player.hand=['burst']
+  const result=play(state,'player',0)
+  assert.equal(result.opponent.reputation,17)
+  assert.equal(state.opponent.reputation,20)
+  state.cards.tax={...state.cards.surge,id:'tax',cost:1,effect:'drain_fare_2'}
+  state.player.hand=['tax'];state.opponent.fare=3
+  assert.equal(play(state,'player',0).opponent.fare,1)
+})
+test('Phase 6 on-attack heal applies after legal combat',()=>{
+  const state=createBattle([],()=>0.3)
+  state.cards.medic={...state.cards.orb,id:'medic',effect:'attack_heal_reputation_1'}
+  state.player.board=[{id:'unit-111',cardId:'medic',hp:5,ready:true}]
+  state.player.reputation=15
+  const result=attack(state,'player','unit-111')
+  assert.equal(result.player.reputation,16)
+  assert.equal(result.opponent.reputation,18)
+  assert.equal(result.player.board[0].ready,false)
+})
+test('Phase 6 defeat ability activates when defending card dies',()=>{
+  const state=createBattle([],()=>0.3)
+  state.cards.revenge={...state.cards.goblin,id:'revenge',effect:'defeat_deal_reputation_2'}
+  state.player.board=[{id:'unit-112',cardId:'orb',hp:5,ready:true}]
+  state.opponent.board=[{id:'unit-113',cardId:'revenge',hp:1,ready:true}]
+  const result=attack(state,'player','unit-112','unit-113')
+  assert.equal(result.player.reputation,18)
+  assert.equal(result.opponent.board.length,0)
+})
+test('Phase 6 stunned drivers miss their next ready window',()=>{
+  const state=createBattle([],()=>0.3)
+  state.cards.stop={...state.cards.ticket,id:'stop',effect:'stun_enemy_1',cost:1}
+  state.player.hand=['stop']
+  state.opponent.board=[{id:'unit-114',cardId:'goblin',hp:2,ready:true}]
+  const a=play(state,'player',0)
+  assert.equal(a.opponent.board[0].stunnedTurns,1)
+  const b=endTurn(a)
+  assert.equal(b.opponent.board[0].ready,false)
+  assert.equal(b.opponent.board[0].stunnedTurns,0)
+  const c=endTurn(endTurn(b))
+  assert.equal(c.opponent.board[0].ready,true)
+})
+test('Phase 6 turn start abilities trigger every survived turn',()=>{
+  const state=createBattle([],()=>0.3)
+  state.cards.tip={...state.cards.orb,id:'tip',effect:'turn_gain_fare_1'}
+  state.player.board=[{id:'unit-115',cardId:'tip',hp:5,ready:true}]
+  const result=endTurn(endTurn(state))
+  assert.equal(result.player.fare,result.player.maxFare+1)
+})
+test('Phase 6 full finished card uses artwork without modifying game stats',()=>{
+  const source={status:'published',kind:'driver',name:'Death',cost:5,attack:5,health:4,stars:1,rarity:'standard',effectKey:'defeat_deal_reputation_2',finishedUrl:'https://example.org/death.png',cartoonUrl:'https://example.org/cartoon.png'}
+  const card=officialBattleCard('deathcard1234',source)
+  assert.equal(card.fullCard,true)
+  assert.equal(card.imageUrl,source.finishedUrl)
+  assert.equal(card.effect,'defeat_deal_reputation_2')
+})
