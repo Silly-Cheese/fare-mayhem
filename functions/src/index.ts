@@ -4,6 +4,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { canPublish, validateArtworkPath, validateCard } from './validation'
+import { parsePracticeDeckSlot } from './practiceSettings'
 
 initializeApp()
 const db = getFirestore()
@@ -99,8 +100,8 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
   const uid=requirePlayer(request.auth)
   if(request.data && (typeof request.data!=='object'||(request.data.restart!==undefined&&typeof request.data.restart!=='boolean')))
     throw new HttpsError('invalid-argument','Invalid practice settings.')
-  const deckSlot=request.data?.deckSlot
-  if(deckSlot!==undefined&&(!Number.isInteger(deckSlot)||deckSlot<1||deckSlot>3))throw new HttpsError('invalid-argument','Invalid collection deck slot.')
+  let deckSlot: number | undefined
+  try{deckSlot=parsePracticeDeckSlot(request.data?.deckSlot)}catch{throw new HttpsError('invalid-argument','Invalid collection deck slot.')}
   const restart=request.data?.restart===true
   const ref=db.doc(`practiceMatches/${uid}`)
   // Read and resolve an existing session before doing any additional published-card reads.
