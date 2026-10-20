@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { createBattle, play, attack, endTurn, chooseDiscard, officialBattleCard, type BattleState, type BattleCard, type Side } from './battle'
+import { createBattle, play, attack, endTurn, chooseDiscard, chooseTarget, respondToAction, officialBattleCard, type BattleState, type BattleCard, type Side } from './battle'
 
 const db=()=>getFirestore()
 const region='us-central1'
@@ -38,7 +38,7 @@ async function verifiedDeck(tx:Transaction,uid:string,slot:number):Promise<DeckD
 function visibleMatch(state:BattleState,side:Side){
   const own=state[side],other=state[side==='player'?'opponent':'player']
   const visible=new Set([...own.hand,...own.deck,...own.board.map(x=>x.cardId),...other.board.map(x=>x.cardId)])
-  const revealedOpponentHand=state.pendingChoice?.side===side?[...other.hand]:undefined
+  const revealedOpponentHand=state.pendingChoice?.side===side&&state.pendingChoice.kind==='third_eye_discard'?[...other.hand]:undefined
   if(revealedOpponentHand)for(const id of revealedOpponentHand)visible.add(id)
   const cards=Object.fromEntries(Object.entries(state.cards).filter(([id])=>visible.has(id)))
   return{
@@ -47,6 +47,7 @@ function visibleMatch(state:BattleState,side:Side){
     cards,turn:state.turn===side?'self':'rival',
     winner:state.winner===null?null:state.winner===side?'self':'rival',
     round:state.round,version:state.version,pendingChoice:state.pendingChoice?.side===side?state.pendingChoice:undefined,revealedOpponentHand,
+    pendingReaction:state.pendingReaction&&[state.pendingReaction.actor,state.pendingReaction.responder].includes(side)?{...state.pendingReaction,cardName:state.cards[state.pendingReaction.cardId]?.name||'Action'}:undefined,
     // Battle engine log messages are written from player one's perspective.
     log:state.log
   }
@@ -163,7 +164,7 @@ export const getPvpStatus=onCall({region,invoker:'public',cpu:'gcf_gen1',concurr
 export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:12,timeoutSeconds:35,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth),id=request.data?.matchId,action=request.data?.action,version=request.data?.version
   if(!idOk(id))throw new HttpsError('invalid-argument','Invalid match.')
-  if(!action||typeof action!=='object'||!['play','attack','end','forfeit','choose_discard'].includes(action.type))throw new HttpsError('invalid-argument','Invalid match action.')
+  if(!action||typeof action!=='object'||!['play','attack','end','forfeit','choose_discard','choose_target','react'].includes(action.type))throw new HttpsError('invalid-argument','Invalid match action.')
   if(!Number.isInteger(version)||version<1)throw new HttpsError('invalid-argument','Invalid match revision.')
   const ref=matchRef(id)
   await db().runTransaction(async tx=>{
@@ -181,9 +182,15 @@ export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concur
     }else if(action.type==='forfeit'){
       next={...current,winner:side==='player'?'opponent':'player',version:current.version+1,log:['A dispatcher forfeited.',...current.log].slice(0,24)}
     }else{
-      if(current.turn!==side)throw new HttpsError('failed-precondition','Wait for your opponent’s turn.')
-      if(current.pendingChoice&&action.type!=='choose_discard')throw new HttpsError('failed-precondition','Choose a card to discard before continuing.')
-      if(action.type==='choose_discard'&&Number.isInteger(action.index)&&action.index>=0&&action.index<8)next=chooseDiscard(current,side,action.index)
+      if(current.pendingReaction){
+        if(action.type!=='react'||current.pendingReaction.responder!==side)throw new HttpsError('failed-precondition','Wait for the pending Action reaction.')
+      }else{
+        if(current.turn!==side)throw new HttpsError('failed-precondition','Wait for your opponent’s turn.')
+        if(current.pendingChoice&&!(action.type==='choose_discard'||action.type==='choose_target'))throw new HttpsError('failed-precondition','Resolve the current card choice first.')
+      }
+      if(action.type==='react'&&typeof action.useNope==='boolean'&&(!action.useNope||(Number.isInteger(action.index)&&action.index>=0&&action.index<8)))next=respondToAction(current,side,action.useNope,action.index)
+      else if(action.type==='choose_target'&&typeof action.unitId==='string'&&/^unit-\d{1,7}$/.test(action.unitId)&&(action.targetSide==='player'||action.targetSide==='opponent'))next=chooseTarget(current,side,action.targetSide,action.unitId)
+      else if(action.type==='choose_discard'&&Number.isInteger(action.index)&&action.index>=0&&action.index<8)next=chooseDiscard(current,side,action.index)
       else if(action.type==='end')next=endTurn(current)
       else if(action.type==='play'&&Number.isInteger(action.index)&&action.index>=0&&action.index<8)next=play(current,side,action.index)
       else if(action.type==='attack'&&typeof action.attackerId==='string'&&/^unit-\d{1,7}$/.test(action.attackerId)
@@ -192,7 +199,7 @@ export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concur
       if(!next)throw new HttpsError('failed-precondition','That move is not allowed by the battle rules.')
       next.version=current.version+1
     }
-    const newDeadline=next.winner?0:(next.turn!==current.turn?now+TURN_TTL:Number(snap.get('turnDeadlineMs')))
+    const newDeadline=next.winner?0:(next.turn!==current.turn||!!next.pendingReaction!==!!current.pendingReaction?now+TURN_TTL:Number(snap.get('turnDeadlineMs')))
     tx.update(ref,{state:next,updatedAtMs:now,turnDeadlineMs:newDeadline,...(next.winner?{finishedAtMs:now}:{})})
     if(next.winner)writePvpHistory(tx,id,snap.get('firstUid'),snap.get('secondUid'),next.winner,next.round,now)
   })
