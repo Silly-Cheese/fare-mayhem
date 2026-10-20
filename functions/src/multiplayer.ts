@@ -27,6 +27,7 @@ async function verifiedDeck(tx:Transaction,uid:string,slot:number):Promise<DeckD
       tx.get(db().doc(`playerCollections/${uid}/cards/${id}`)),
       tx.get(db().doc(`cards/${id}`))
     ])
+    if(card.get('effectKey')==='divine_judgment_resurrection'&&qty!==1)throw new HttpsError('failed-precondition','Only one God card per PvP deck.')
     if(!card.exists||card.get('status')!=='published'||Number(owned.get('quantity')||0)<qty)throw new HttpsError('failed-precondition','A saved deck contains cards you no longer own or which have been unpublished.')
     const definition=officialBattleCard(id,card.data()!)
     if(!definition)throw new HttpsError('failed-precondition','A deck card has invalid battle metadata.')
