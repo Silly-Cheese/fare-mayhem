@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
+import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { canPublish, validateArtworkPath, validateCard } from './validation'
 
@@ -200,3 +201,35 @@ export { getCollectionDashboard, saveCollectionDeck } from './collection'
 export { listTradeOffers, createTradeOffer, respondTradeOffer } from './trades'
 
 export { joinPvpQueue, leavePvpQueue, getPvpStatus, takePvpAction, getPvpHistory } from './multiplayer'
+
+/**
+ * Phase 5 — only the verified single owner can distribute published official cards.
+ * Intended for limited test collections and planned promotional releases.
+ * Clients have no direct writes to inventories or issuance records.
+ */
+export const grantOfficialCards = onCall({region,maxInstances:3,enforceAppCheck:false},async request=>{
+  const operatorUid=await requireOwner(request.auth)
+  const email=request.data?.recipientEmail,cardId=request.data?.cardId,quantity=request.data?.quantity
+  if(typeof email!=='string'||email.length>254||!/^\S+@\S+\.\S+$/.test(email.trim()))
+    throw new HttpsError('invalid-argument','Enter the existing player’s email address.')
+  if(!validId(cardId)||!Number.isInteger(quantity)||quantity<1||quantity>25)
+    throw new HttpsError('invalid-argument','Choose a published card and 1–25 copies.')
+  let recipientUid:string
+  try{recipientUid=(await getAuth().getUserByEmail(email.trim())).uid}
+  catch{throw new HttpsError('not-found','No Firebase account exists for that email. Ask the player to register first.')}
+  const cardRef=db.doc(`cards/${cardId}`)
+  const invRef=db.doc(`playerCollections/${recipientUid}/cards/${cardId}`)
+  const auditRef=db.collection('inventoryGrantAudit').doc()
+  await db.runTransaction(async tx=>{
+    const [card,previous]=await Promise.all([tx.get(cardRef),tx.get(invRef)])
+    if(!card.exists||card.get('status')!=='published')
+      throw new HttpsError('failed-precondition','Only published official cards can be granted.')
+    const current=Number(previous.get('quantity')||0)
+    if(current+quantity>999)throw new HttpsError('failed-precondition','Inventory maximum of 999 copies reached.')
+    tx.set(invRef,{quantity:current+quantity,updatedAt:FieldValue.serverTimestamp()},{merge:true})
+    tx.set(db.doc(`issuedCardRegistry/${cardId}`),{everIssued:true,lastIssuedAt:FieldValue.serverTimestamp()},{merge:true})
+    tx.create(auditRef,{operatorUid,recipientUid,cardId,quantity,
+      action:'owner-grant',createdAt:FieldValue.serverTimestamp()})
+  })
+  return{granted:true,recipientUid,quantity}
+})
