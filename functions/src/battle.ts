@@ -1,6 +1,6 @@
 /** Server-owned Fare Mayhem rules. No Firebase imports: reproducible and independently testable. */
 export type Side = 'player' | 'opponent'
-export const EFFECTS = ["none","steal_fare_1","steal_fare_2","deal_reputation_1","deal_reputation_2","deal_reputation_3","heal_reputation_1","heal_reputation_2","heal_reputation_4","heal_reputation_6","deal_driver_2","deal_driver_3","deal_driver_5","draw_1","draw_2","draw_3","gain_fare_1","gain_fare_2","gain_fare_3","drain_fare_2","deal_all_enemies_1","heal_ally_2","buff_ally_attack_1","stun_enemy_1","discard_enemy_1","shield_self_2","attack_heal_reputation_1","attack_steal_fare_1","attack_draw_1","defeat_deal_reputation_2","defeat_heal_reputation_2","defeat_draw_1","turn_heal_reputation_1","turn_gain_fare_1","turn_buff_attack_1"] as const
+export const EFFECTS = ["none","discount_self_cost_1","steal_fare_1","steal_fare_2","deal_reputation_1","deal_reputation_2","deal_reputation_3","heal_reputation_1","heal_reputation_2","heal_reputation_4","heal_reputation_6","deal_driver_2","deal_driver_3","deal_driver_5","draw_1","draw_2","draw_3","gain_fare_1","gain_fare_2","gain_fare_3","drain_fare_2","deal_all_enemies_1","heal_ally_2","buff_ally_attack_1","stun_enemy_1","discard_enemy_1","shield_self_2","attack_heal_reputation_1","attack_steal_fare_1","attack_draw_1","defeat_deal_reputation_2","defeat_heal_reputation_2","defeat_draw_1","turn_heal_reputation_1","turn_gain_fare_1","turn_buff_attack_1"] as const
 export type Effect = (typeof EFFECTS)[number]
 export type BattleCard = { id:string; name:string; nickname:string; kind:'driver'|'action'; cost:number; attack:number; health:number; effect:Effect; imageUrl:string; fullCard?:boolean; rating:string; source:'training'|'official' }
 export type BattleUnit = { id:string; cardId:string; hp:number; ready:boolean; shield?:number; attackBonus?:number; stunnedTurns?:number }
@@ -116,8 +116,12 @@ function startTurnEffects(s:BattleState,side:Side){
     else if(key==='turn_buff_attack_1')unit.attackBonus=Math.min(5,(unit.attackBonus||0)+1)
   }
 }
-export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=c.cost&&(c.kind==='action'||p.board.length<3)}
-export function play(s:BattleState,side:Side,index:number):BattleState|null{if(!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=c.cost;if(c.kind==='driver')p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false});effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
+/** Printed cost stays on the card; discounted cost is calculated only while it is played. */
+export function effectiveFareCost(card:Pick<BattleCard,'cost'|'effect'>):number {
+  return Math.max(0,card.cost-(card.effect==='discount_self_cost_1'?1:0))
+}
+export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=effectiveFareCost(c)&&(c.kind==='action'||p.board.length<3)}
+export function play(s:BattleState,side:Side,index:number):BattleState|null{if(!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=effectiveFareCost(c);if(c.kind==='driver')p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false});effect(next,side,c.effect);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
 export function attack(s:BattleState,side:Side,attackerId:string,targetId?:string):BattleState|null{
   if(s.turn!==side||s.winner)return null
   const source=s[side].board.find(u=>u.id===attackerId)
