@@ -132,3 +132,27 @@ test('Phase 6 full finished card uses artwork without modifying game stats',()=>
   assert.equal(card.imageUrl,source.finishedUrl)
   assert.equal(card.effect,'defeat_deal_reputation_2')
 })
+
+test('Jim-style one Fare discount is server validated for practice and PvP',()=>{
+  const battle=createBattle([],()=>0.4)
+  battle.cards.jim={...battle.cards.goblin,id:'jim',name:'Jim',cost:3,effect:'discount_self_cost_1'}
+  battle.player.hand=['jim']
+  battle.player.fare=2
+  assert.equal(canPlay(battle,'player',0),true)
+  const played=play(battle,'player',0)
+  assert.ok(played)
+  assert.equal(played.player.fare,0)
+  assert.equal(played.player.board.length,1)
+  assert.equal(battle.player.fare,2,'must not mutate the original battle state')
+  const cannotAfford=createBattle([],()=>0.4)
+  cannotAfford.cards.jim={...battle.cards.jim}
+  cannotAfford.player.hand=['jim']
+  cannotAfford.player.fare=1
+  assert.equal(canPlay(cannotAfford,'player',0),false)
+  const free=createBattle([],()=>0.4)
+  free.cards.jim={...battle.cards.jim,cost:1}
+  free.player.hand=['jim']
+  free.player.fare=0
+  assert.equal(canPlay(free,'player',0),true,'a discount cannot make a card cost less than 0')
+  assert.equal(play(free,'player',0).player.fare,0)
+})
