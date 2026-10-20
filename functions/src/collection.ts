@@ -32,6 +32,7 @@ export const saveCollectionDeck=onCall({region,invoker:'public',cpu:'gcf_gen1',c
       const [card,owned]=await Promise.all([
         tx.get(db().doc(`cards/${id}`)),tx.get(db().doc(`playerCollections/${uid}/cards/${id}`))
       ])
+      if(card.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God card is allowed per deck.')
       if(!card.exists||card.get('status')!=='published'||!owned.exists||Number(owned.get('quantity')||0)<n)throw new HttpsError('failed-precondition','Your deck includes a card you do not currently own.')
     }
     tx.set(db().doc(`playerDecks/${uid}/slots/slot-${slot}`),{uid,slot,name:name.trim(),ids,updatedAt:FieldValue.serverTimestamp()})
