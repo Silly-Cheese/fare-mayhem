@@ -3,7 +3,7 @@ import { CheckCircle2, FileUp, ImagePlus, Upload, X } from 'lucide-react'
 import { battleEffectOptions, initialCard, type EditableCard, type OfficialCard } from './types'
 import { publishOfficialCard, saveOfficialCard, subscribeDrafts, uploadArtwork } from './api'
 
-type Entry={card:EditableCard;originalFile:string;cartoonFile:string}
+type Entry={card:EditableCard;originalFile:string;cartoonFile:string;finishedFile:string}
 const clean=(v:unknown)=>v===null||v===undefined?'':String(v).trim()
 const numberOr=(v:unknown,n:number)=>v===null||v===undefined||v===''?n:Number(v)
 function decodeCSV(text:string):Record<string,string>[]{
@@ -46,7 +46,7 @@ export function parseCards(text:string,name:string):Entry[]{
     const key=`${card.name.toLowerCase()}::${card.edition.toLowerCase()}`
     if(seen.has(key))throw Error(`Duplicate name/edition in row ${i+1}`)
     seen.add(key)
-    return {card,originalFile:clean(r.originalFile),cartoonFile:clean(r.cartoonFile)}
+    return {card,originalFile:clean(r.originalFile),cartoonFile:clean(r.cartoonFile),finishedFile:clean(r.finishedFile)}
   })
 }
 export function BulkImport({onClose}:{onClose:()=>void}){
@@ -71,16 +71,17 @@ export function BulkImport({onClose}:{onClose:()=>void}){
         const row=rows[i],prior=existing.find(c=>c.name.toLowerCase()===row.card.name.toLowerCase()&&c.edition.toLowerCase()===row.card.edition.toLowerCase())
         setStatus(`Processing ${i+1} of ${rows.length}: ${row.card.name}`)
         try{
-          if((row.originalFile&&!find(row.originalFile))||(row.cartoonFile&&!find(row.cartoonFile)))throw Error('Matching artwork file missing. Check the selected image filenames.')
-          const merged:EditableCard=prior?{...row.card,originalUrl:prior.originalUrl,originalStoragePath:prior.originalStoragePath,cartoonUrl:prior.cartoonUrl,cartoonStoragePath:prior.cartoonStoragePath}:row.card
+          if((row.originalFile&&!find(row.originalFile))||(row.cartoonFile&&!find(row.cartoonFile))||(row.finishedFile&&!find(row.finishedFile)))throw Error('Matching artwork file missing. Check the selected image filenames.')
+          const merged:EditableCard=prior?{...row.card,originalUrl:prior.originalUrl,originalStoragePath:prior.originalStoragePath,cartoonUrl:prior.cartoonUrl,cartoonStoragePath:prior.cartoonStoragePath,finishedUrl:prior.finishedUrl||'',finishedStoragePath:prior.finishedStoragePath||''}:row.card
           const id=await saveOfficialCard(merged,prior?.id)
-          for(const type of ['original','cartoon'] as const){
-            const filename=type==='original'?row.originalFile:row.cartoonFile
+          for(const type of ['original','cartoon','finished'] as const){
+            const filename=type==='original'?row.originalFile:type==='cartoon'?row.cartoonFile:row.finishedFile
             if(!filename)continue
             const image=find(filename)!
             const result=await uploadArtwork(id,image,()=>{},type)
             if(type==='original'){merged.originalUrl=result.url;merged.originalStoragePath=result.storagePath}
-            else{merged.cartoonUrl=result.url;merged.cartoonStoragePath=result.storagePath}
+            else if(type==='cartoon'){merged.cartoonUrl=result.url;merged.cartoonStoragePath=result.storagePath}
+            else{merged.finishedUrl=result.url;merged.finishedStoragePath=result.storagePath}
           }
           await saveOfficialCard(merged,id)
           if(publish)await publishOfficialCard(id)
@@ -92,14 +93,14 @@ export function BulkImport({onClose}:{onClose:()=>void}){
     }finally{setRunning(false)}
   }
   return <section className="bulk-import"><div className="bulk-import-head"><div><span className="eyebrow">OWNER IMPORT TOOL</span><h2>Import your original collection</h2><p>Import up to 50 cards per batch. Match local artwork filenames, review the table, and publish only when ready. No paid AI generation.</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close importer"><X size={19}/></button></div>
-    <div className="bulk-inputs"><label className="studio-upload"><FileUp size={23}/><span>Choose a CSV or JSON card list</span><small>Up to 50 records per batch</small><input type="file" accept=".csv,.json" onChange={choose} disabled={running}/></label><label className="studio-upload"><ImagePlus size={23}/><span>Attach original & cartoon image files</span><small>PNG/JPG/WebP · filenames must match card rows</small><input type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={e=>{setFiles(Array.from(e.target.files||[]));e.target.value=''}} disabled={running}/></label></div>
-    <p className="studio-hint">Columns: name, nickname, kind, rarity, stars, transcendentLabel, cost, attack, health, ability, flavor, customerReview, edition, effectKey, originalFile, cartoonFile. Optional artwork can be added later in Card Studio.</p>
+    <div className="bulk-inputs"><label className="studio-upload"><FileUp size={23}/><span>Choose a CSV or JSON card list</span><small>Up to 50 records per batch</small><input type="file" accept=".csv,.json" onChange={choose} disabled={running}/></label><label className="studio-upload"><ImagePlus size={23}/><span>Attach original, cartoon and finished card files</span><small>PNG/JPG/WebP · filenames must match card rows</small><input type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={e=>{setFiles(Array.from(e.target.files||[]));e.target.value=''}} disabled={running}/></label></div>
+    <p className="studio-hint">Columns: name, nickname, kind, rarity, stars, transcendentLabel, cost, attack, health, ability, flavor, customerReview, edition, effectKey, originalFile, cartoonFile, finishedFile. Finished images must be 5:7 portrait and include the complete card. Optional artwork can be added later in Card Studio.</p>
     {files.length>0&&<p>{files.length} artwork file(s) attached.</p>}
-    {rows.length>0&&<><div className="bulk-scroll"><table><thead><tr><th>Card</th><th>Rating</th><th>Fare</th><th>Artwork files</th><th>Operation</th></tr></thead><tbody>{rows.map((r,i)=><tr key={i}><td>{r.card.name}<small>{r.card.edition}</small></td><td>{r.card.rarity==='standard'?'★'.repeat(r.card.stars):r.card.transcendentLabel}</td><td>{r.card.cost}</td><td>{[r.originalFile,r.cartoonFile].filter(Boolean).map(x=><span key={x} className={find(x)?'import-ok':'import-fail'}>{find(x)?'✓':'!'} {x}</span>)}{!r.originalFile&&!r.cartoonFile&&'Add later'}</td><td>{existing.some(c=>c.name.toLowerCase()===r.card.name.toLowerCase()&&c.edition.toLowerCase()===r.card.edition.toLowerCase())?'Update':'Create'}</td></tr>)}</tbody></table></div>
+    {rows.length>0&&<><div className="bulk-scroll"><table><thead><tr><th>Card</th><th>Rating</th><th>Fare</th><th>Artwork files</th><th>Operation</th></tr></thead><tbody>{rows.map((r,i)=><tr key={i}><td>{r.card.name}<small>{r.card.edition}</small></td><td>{r.card.rarity==='standard'?'★'.repeat(r.card.stars):r.card.transcendentLabel}</td><td>{r.card.cost}</td><td>{[r.originalFile,r.cartoonFile,r.finishedFile].filter(Boolean).map(x=><span key={x} className={find(x)?'import-ok':'import-fail'}>{find(x)?'✓':'!'} {x}</span>)}{!r.originalFile&&!r.cartoonFile&&'Add later'}</td><td>{existing.some(c=>c.name.toLowerCase()===r.card.name.toLowerCase()&&c.edition.toLowerCase()===r.card.edition.toLowerCase())?'Update':'Create'}</td></tr>)}</tbody></table></div>
       <label className="bulk-publish"><input type="checkbox" checked={publish} disabled={running} onChange={e=>setPublish(e.target.checked)}/> Publish valid imported cards immediately (unchecked = save drafts)</label>
       <button type="button" className="button primary" disabled={running} onClick={()=>void run()}><Upload size={16}/> {running?'Importing…':`Import ${rows.length} card(s)`}</button></>}
     {status&&<p className="studio-hint" role="status">{status}</p>}
     {results.length>0&&<div className="bulk-output">{results.map((text,i)=><p key={i}><CheckCircle2 size={14}/> {text}</p>)}</div>}
-    <details className="bulk-example"><summary>Example JSON format</summary><pre>{JSON.stringify([{name:'Your Driver',nickname:'The Original',kind:'driver',stars:2,cost:2,attack:2,health:3,ability:'On arrival: restore 2 Reputation.',effectKey:'heal_reputation_2',originalFile:'driver.jpg',cartoonFile:'driver-cartoon.png'}],null,2)}</pre></details>
+    <details className="bulk-example"><summary>Example JSON format</summary><pre>{JSON.stringify([{name:'Your Driver',nickname:'The Original',kind:'driver',stars:2,cost:2,attack:2,health:3,ability:'On arrival: restore 2 Reputation.',effectKey:'heal_reputation_2',originalFile:'driver.jpg',cartoonFile:'driver-cartoon.png',finishedFile:'driver-finished.png'}],null,2)}</pre></details>
   </section>
 }
