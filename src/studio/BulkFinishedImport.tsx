@@ -6,6 +6,16 @@ import {saveOfficialCard,uploadArtwork,validateFinishedCardImage} from './api'
 type Item={key:string;file:File;card:EditableCard;valid:boolean;message:string}
 const nameFromFile=(filename:string)=>filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().slice(0,70)
 const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,card:{...item.card,[key]:value}})
+/** Reviewed suggestions for cards whose printed effect is legible in the sample.
+ * These are filename-based hints, NOT image/OCR extraction. The owner must verify.
+ */
+function suggestedFromFilename(name:string):Partial<EditableCard> {
+  switch(name.toLowerCase()){
+    case 'fish boy':return {effectKey:'gain_fare_1',ability:'On arrival: slip through traffic and gain 1 Fare.'}
+    case 'jim':return {effectKey:'discount_self_cost_1',ability:'This card costs 1 less Fare to play.'}
+    default:return {}
+  }
+}
 export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
   const [items,setItems]=useState<Item[]>([]),[running,setRunning]=useState(false)
   const [message,setMessage]=useState(''),[results,setResults]=useState<string[]>([])
@@ -33,7 +43,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
       try{await validateFinishedCardImage(file)}catch(err){valid=false;message=err instanceof Error?err.message:String(err)}
       if(names.has(file.name.toLowerCase())){valid=false;message='Duplicate filename; rename files uniquely and select the batch again.'}
       names.add(file.name.toLowerCase())
-      rows.push({key,file,card:{...initialCard,name},valid,message})
+      rows.push({key,file,card:{...initialCard,name,...suggestedFromFilename(name)},valid,message})
     }
     setItems(rows)
     setMessage(`${rows.length} finished cards selected. ${rows.filter(x=>x.valid).length} accepted images. Review every card's name, rating, Fare and special ability. Nothing is published automatically.`)
@@ -69,7 +79,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
   return <div className="finished-batch">
     <div className="finished-batch-intro"><Images size={23}/><div><h3>Option B · Mass import finished cards</h3><p>Select up to 50 complete images—no spreadsheet required. Death's 5:7 portrait is the recommended style, not a required size. Different card dimensions and proportions are accepted, and images are preserved exactly—including their borders, printed words and graphics.</p></div></div>
     <label className="studio-upload"><FileImage size={23}/><span>Select multiple complete cards</span><small>PNG · JPG · WebP · any dimensions · up to 8 MB each. Portrait recommended.</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={running} onChange={e=>void choose(e)}/></label>
-    <p className="studio-hint">Names initially come from filenames. The site does not infer rarity, stats, or special abilities from the image; review these fields to ensure the gameplay data matches what is printed on each card. Cards are always imported as private drafts.</p>
+    <p className="studio-hint">Names initially come from filenames. Fish Boy and Jim get suggested effects from their filenames only—not automatic image recognition. Review every rating, stat and ability against the printed card; other cards need your input. All imports remain private drafts.</p>
     {items.length>0&&<><div className="finished-batch-totals"><b>{items.length} cards selected</b><span>{invalid} invalid file(s)</span><span>{duplicates} already in the studio</span></div><div className="finished-batch-grid">{items.map((item,i)=><article className={item.valid?'finished-batch-row':'finished-batch-row invalid'} key={item.key}>
       <div className="finished-batch-image">{previews[item.key]?<img src={previews[item.key]} alt={`Full preview of ${item.file.name}`}/>:<FileImage size={29}/>}</div>
       <div className="finished-batch-fields"><b>{item.file.name}</b>{!item.valid&&<p className="studio-warning">{item.message}</p>}
