@@ -159,9 +159,89 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       p.fare=Math.min(10,p.fare+1);if(justPlayed)justPlayed.shield=Math.min(10,(justPlayed.shield||0)+2);break
     case 'prof_khashed_precalc_confusion':
       foe.fare=Math.max(0,foe.fare-1);if(enemy())enemy()!.abilityLockTurns=1;break
+    case 'reputation_repair_restore_2':
+      p.reputation=Math.min(20,p.reputation+2);break
+    case 'tip_boost_gain_2_fare':case 'fare_boost_gain_2_fare':
+      p.fare=Math.min(10,p.fare+2);break
+    case 'draw_up_draw_2':draw(s,side,2);break
+    case 'steal_spotlight_steal_1_fare':{
+      // Fare belongs to players in the engine rather than individual Drivers.
+      const n=Math.min(1,foe.fare,10-p.fare);foe.fare-=n;p.fare+=n;break
+    }
+    case 'detour_return_driver_to_hand':
+    case 'lucky_break_prevent_next_damage':
+    case 'backseat_boost_add_2_hp':
+    case 'second_wind_heal_driver_2':
+    case 'switcheroo_swap_2_drivers':
+      if(eligibleActionTargets(s,side,what).length)s.pendingChoice={side,kind:'action_target',effect:what}
+      break
+    case 'quick_arrival_instant_driver':
+      p.quickArrivalCharges=(p.quickArrivalCharges||0)+1;break
+    case 'team_spirit_all_drivers_hp_1':
+      for(const unit of p.board){unit.hp++;unit.hpBoost=(unit.hpBoost||0)+1}break
+    case 'total_chaos_cycle_1_all':
+      for(const targetSide of [side,enemySide]){
+        const targetFighter=s[targetSide]
+        if(targetFighter.hand.length){
+          const discard=targetFighter.hand.shift()!
+          log(s,`${fighterLabel(s,targetSide)} discarded ${s.cards[discard]?.name||'a card'} during Total Chaos.`)
+        }
+        draw(s,targetSide,1)
+      }
+      break
+    case 'extra_turn_extra_action':
+      // Actions are normally limited to one per turn. This grants another immediate Action play.
+      p.actionAllowance=Math.min(4,(p.actionAllowance||1)+1);break
+    case 'nope_cancel_action':
+      // Nope! is reaction-only. Handled by resolveReaction(), never during normal play.
+      break
     default:break // Non-arrival abilities are handled by their event hooks.
   }
   checkWinner(s)
+}
+/** Server-authoritative target choices. Opponent units protected from opposing abilities are excluded. */
+function eligibleActionTargets(s:BattleState,actor:Side,key:Effect,first?:{side:Side;unitId:string}){
+  const all=([...s.player.board.map(unit=>({side:'player' as Side,unit})),
+    ...s.opponent.board.map(unit=>({side:'opponent' as Side,unit}))])
+  return all.filter(({side,unit})=>{
+    if(side!==actor&&unit.untargetable)return false
+    if(first&&side===first.side&&unit.id===first.unitId)return false
+    if(key==='detour_return_driver_to_hand'&&s[side].hand.length>=8)return false
+    return true
+  })
+}
+export function chooseTarget(s:BattleState,side:Side,targetSide:Side,unitId:string):BattleState|null{
+  const pending=s.pendingChoice
+  if(!pending||pending.kind!=='action_target'||pending.side!==side||s.turn!==side)return null
+  if(targetSide!=='player'&&targetSide!=='opponent')return null
+  const choices=eligibleActionTargets(s,side,pending.effect!,pending.first)
+  if(!choices.some(x=>x.side===targetSide&&x.unit.id===unitId))return null
+  const next=clone(s),effectKey=pending.effect!
+  const target=next[targetSide].board.find(u=>u.id===unitId)!
+  if(effectKey==='switcheroo_swap_2_drivers'&&!pending.first){
+    next.pendingChoice={side,kind:'action_target',effect:effectKey,first:{side:targetSide,unitId}}
+    return next
+  }
+  delete next.pendingChoice
+  if(effectKey==='detour_return_driver_to_hand'){
+    next[targetSide].board=next[targetSide].board.filter(u=>u.id!==unitId)
+    if(target.cardId!=='beetle_token')next[targetSide].hand.push(target.cardId)
+  } else if(effectKey==='lucky_break_prevent_next_damage'){
+    target.firstHitProtected=true
+  } else if(effectKey==='backseat_boost_add_2_hp'){
+    target.hp+=2;target.hpBoost=(target.hpBoost||0)+2
+  } else if(effectKey==='second_wind_heal_driver_2'){
+    target.hp=Math.min(next.cards[target.cardId].health+(target.hpBoost||0),target.hp+2)
+  } else if(effectKey==='switcheroo_swap_2_drivers'&&pending.first){
+    const prev=pending.first
+    const firstBoard=next[prev.side].board,secondBoard=next[targetSide].board
+    const a=firstBoard.findIndex(x=>x.id===prev.unitId),b=secondBoard.findIndex(x=>x.id===unitId)
+    if(a<0||b<0)return null
+    const prior=firstBoard[a]
+    firstBoard[a]=secondBoard[b];secondBoard[b]=prior
+  } else return null
+  log(next,`${fighterLabel(next,side)} resolved ${effectKey.replaceAll('_',' ')}.`)
+  return next
 }
 function afterAttack(s:BattleState,side:Side,unit:BattleUnit){
   const key=s.cards[unit.cardId]?.effect
