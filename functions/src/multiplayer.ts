@@ -89,7 +89,7 @@ async function timedSnapshot(id:string,uid:string){
   return (await ref.get())
 }
 
-export const joinPvpQueue=onCall({region,invoker:'public',maxInstances:10,timeoutSeconds:90,enforceAppCheck:false},async request=>{
+export const joinPvpQueue=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:10,timeoutSeconds:90,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth),slot=request.data?.deckSlot
   if(!slotOk(slot))throw new HttpsError('invalid-argument','Select a saved collection deck slot (1–3).')
   let outcome:{status:string;matchId?:string}={status:'waiting'}
@@ -131,7 +131,7 @@ export const joinPvpQueue=onCall({region,invoker:'public',maxInstances:10,timeou
   return outcome
 })
 
-export const leavePvpQueue=onCall({region,invoker:'public',maxInstances:8,enforceAppCheck:false},async request=>{
+export const leavePvpQueue=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:8,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth)
   await db().runTransaction(async tx=>{
     const selfRef=playerRef(uid),waitingRef=queueRef()
@@ -143,7 +143,7 @@ export const leavePvpQueue=onCall({region,invoker:'public',maxInstances:8,enforc
   return{left:true}
 })
 
-export const getPvpStatus=onCall({region,invoker:'public',maxInstances:12,enforceAppCheck:false},async request=>{
+export const getPvpStatus=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:12,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth),pointer=await playerRef(uid).get()
   if(!pointer.exists||pointer.get('status')==='idle')return{status:'idle'}
   if(pointer.get('status')==='waiting'){
@@ -157,7 +157,7 @@ export const getPvpStatus=onCall({region,invoker:'public',maxInstances:12,enforc
   return projection(latest,uid)
 })
 
-export const takePvpAction=onCall({region,invoker:'public',maxInstances:12,timeoutSeconds:35,enforceAppCheck:false},async request=>{
+export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:12,timeoutSeconds:35,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth),id=request.data?.matchId,action=request.data?.action,version=request.data?.version
   if(!idOk(id))throw new HttpsError('invalid-argument','Invalid match.')
   if(!action||typeof action!=='object'||!['play','attack','end','forfeit'].includes(action.type))throw new HttpsError('invalid-argument','Invalid match action.')
@@ -196,7 +196,7 @@ export const takePvpAction=onCall({region,invoker:'public',maxInstances:12,timeo
 })
 
 /** Recent PvP match outcomes, visible only to the authenticated player. */
-export const getPvpHistory=onCall({region,invoker:'public',maxInstances:6,enforceAppCheck:false},async request=>{
+export const getPvpHistory=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:6,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth)
   const results=await db().collection(`pvpHistory/${uid}/matches`).orderBy('finishedAtMs','desc').limit(12).get()
   return {matches:results.docs.map(d=>({
