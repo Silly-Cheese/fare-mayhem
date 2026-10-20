@@ -62,6 +62,10 @@ function defeatedUnits(s:BattleState,side:Side) {
 }
 function effect(s:BattleState,side:Side,what:Effect) {
   const p=s[side],foe=s[side==='player'?'opponent':'player']
+  const enemySide:Side=side==='player'?'opponent':'player'
+  const justPlayed=p.board.at(-1)
+  const enemy=()=>foe.board.find(u=>!u.untargetable)
+  if(p.abilitiesDisabled && what!=='none' && what!=='discount_self_cost_1')return
   switch(what){
     case 'steal_fare_1':case 'steal_fare_2':{
       const n=Math.min(Number(what.slice(-1)),foe.fare,10-p.fare);foe.fare-=n;p.fare+=n;break
@@ -99,6 +103,62 @@ function effect(s:BattleState,side:Side,what:Effect) {
       break
     }
     case 'discard_enemy_1':if(foe.hand.length){const discarded=foe.hand.shift()!;log(s,`${fighterLabel(s,side)} forced a discard of ${s.cards[discarded]?.name||'a card'}.`)}break
+
+    case 'summon_beetle_1_1':
+      if(p.board.length<3){s.cards.beetle_token={id:'beetle_token',name:'Beetle',nickname:'Beetle Boy companion',kind:'driver',cost:0,attack:1,health:1,effect:'none',imageUrl:'',rating:'',source:'training'};p.board.push({id:`unit-${s.nextId++}`,cardId:'beetle_token',hp:1,ready:false})}
+      break
+    case 'invisible_first_hit_shield':if(justPlayed)justPlayed.firstHitProtected=true;break
+    case 'death_deal_3_damage':{
+      const target=enemy();if(target){damageUnit(target,3);defeatedUnits(s,enemySide)}break
+    }
+    case 'third_eye_reveal_discard_1':
+      if(foe.hand.length)s.pendingChoice={side,kind:'third_eye_discard'}
+      break
+    case 'dwarf_jar_fare_1_heal_2':
+      p.fare=Math.min(10,p.fare+1);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+2);break
+    case 'diva_silence_next_clock':foe.cancelNextClock=1;break
+    case 'logan_drum_heal_1_rep_1':
+      p.reputation=Math.min(20,p.reputation+1);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+1);break
+    case 'toddler_confuse_next_turn':foe.disableNextTurn=1;break
+    case 'jim_boring_reputation_1_and_untargetable':
+      p.reputation=Math.min(20,p.reputation+1);if(justPlayed)justPlayed.untargetable=true;break
+    case 'madhatter_chaos_draw_and_blast':{
+      draw(s,side,1);draw(s,enemySide,1)
+      const candidates=foe.board.filter(u=>!u.untargetable)
+      if(candidates.length){const victim=candidates[Math.floor(Math.random()*candidates.length)];damageUnit(victim,2);defeatedUnits(s,enemySide)}
+      break
+    }
+    case 'sun_solar_flare_all_5':
+      for(const unit of [...p.board,...foe.board])if(unit!==justPlayed)damageUnit(unit,5)
+      defeatedUnits(s,side);defeatedUnits(s,enemySide);break
+    case 'centipede_lifesteal_2':case 'beatrice_swarm_lifesteal_2':{
+      const target=enemy()
+      if(target){damageUnit(target,2);defeatedUnits(s,enemySide);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+2)}
+      break
+    }
+    case 'george_polite_rep_2_discount_1':
+      p.reputation=Math.min(20,p.reputation+2);p.nextDriverDiscount=(p.nextDriverDiscount||0)+1;break
+    case 'trump_boast_fare_3_rep_minus_2':
+      p.fare=Math.min(10,p.fare+3);p.reputation-=2;break
+    case 'bob_awkward_stare_attack_minus_2':{
+      const target=enemy();if(target){target.attackDebuff=2;target.attackDebuffTurns=1}
+      break
+    }
+    case 'ja_candy_fare_1_heal_1':{
+      p.fare=Math.min(10,p.fare+1)
+      const target=p.board.find(u=>u.hp<s.cards[u.cardId].health)
+      if(target)target.hp=Math.min(s.cards[target.cardId].health,target.hp+1)
+      break
+    }
+    case 'divine_judgment_resurrection':
+      for(const target of foe.board)target.hp=0
+      defeatedUnits(s,enemySide)
+      for(const unit of p.board)unit.hp=s.cards[unit.cardId].health
+      draw(s,side,5);p.fare=10;break
+    case 'fish_boy_slipstream_shield_2':
+      p.fare=Math.min(10,p.fare+1);if(justPlayed)justPlayed.shield=Math.min(10,(justPlayed.shield||0)+2);break
+    case 'prof_khashed_precalc_confusion':
+      foe.fare=Math.max(0,foe.fare-1);if(enemy())enemy()!.abilityLockTurns=1;break
     default:break // Non-arrival abilities are handled by their event hooks.
   }
   checkWinner(s)
