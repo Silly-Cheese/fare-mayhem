@@ -180,6 +180,8 @@ export const deleteOfficialCard = onCall({region,maxInstances:2,timeoutSeconds:6
   if(!validId(id))throw new HttpsError('invalid-argument','Invalid card ID.')
   const source=db.doc(`cardDrafts/${id}`),published=db.doc(`cards/${id}`)
   await db.runTransaction(async tx=>{
+    const issued=await tx.get(db.doc(`issuedCardRegistry/${id}`))
+    if(issued.exists&&issued.get('everIssued')===true)throw new HttpsError('failed-precondition','This card has been awarded to a player. Unpublish it instead; owned cards must not be destroyed.')
     const draft=await tx.get(source)
     if(!draft.exists)throw new HttpsError('not-found','This card has already been deleted.')
     if(typeof confirmation!=='string'||confirmation!==draft.get('name'))throw new HttpsError('failed-precondition','Type the exact driver name to confirm permanent deletion.')
