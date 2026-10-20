@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, EmailAuthProvider, linkWithCredential, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 import { getFirestore, doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getFunctions } from 'firebase/functions'
@@ -45,4 +45,22 @@ export async function registerEmail(name: string, email: string, password: strin
   try { await upsertPlayer({ ...res.user, displayName: name.trim() }) } catch (error) { console.warn('Profile sync unavailable:', error) }
   return res.user
 }
+/**
+ * Adds email/password as a SECOND sign-in method on the CURRENT Firebase user.
+ * This does not register, sign in as another user, migrate Firestore records, or
+ * change the UID to which the fmOwner custom claim and _system/owner refer.
+ */
+export async function linkPasswordToCurrentUser(password: string) {
+  const user = auth.currentUser
+  if (!user) throw Error('Sign in with Google before adding password sign-in.')
+  if (!user.email || !user.emailVerified) throw Error('Your existing account must have a verified email address before linking a password.')
+  if (user.providerData.some(provider => provider.providerId === 'password')) throw Error('Email/password is already enabled on this account.')
+  if (password.length < 12) throw Error('Use a password of at least 12 characters.')
+  const originalUid = user.uid
+  const credential = EmailAuthProvider.credential(user.email, password)
+  const result = await linkWithCredential(user, credential)
+  if (result.user.uid !== originalUid) throw Error('The account identity could not be verified. Do not sign out; contact support.')
+  return result.user
+}
+
 export async function logout() { await signOut(auth) }
