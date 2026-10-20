@@ -42,10 +42,12 @@ export async function uploadArtwork(id: string, file: File, onProgress: (pct: nu
 
 export const uploadOriginal = (id:string,file:File,progress:(n:number)=>void)=>uploadArtwork(id,file,progress,'original')
 
-/** Match the owner's complete Death card: 5:7 at 1060 × 1484 (with some resolution tolerance). */
+/** Preserve complete uploaded artwork exactly as supplied.
+ * 5:7 portrait (such as Death) is an optional recommendation, never a hard requirement.
+ */
 export async function validateFinishedCardImage(file: File) {
   if (!['image/png','image/jpeg','image/webp'].includes(file.type)) throw Error('Finished cards must be PNG, JPEG or WebP.')
-  if (file.size > 8 * 1024 * 1024) throw Error('Finished cards must be at most 8 MB.')
+  if (!file.size || file.size > 8 * 1024 * 1024) throw Error('Finished cards must be larger than zero bytes and at most 8 MB.')
   const url=URL.createObjectURL(file)
   try {
     const image=await new Promise<HTMLImageElement>((resolve,reject)=>{
@@ -54,9 +56,7 @@ export async function validateFinishedCardImage(file: File) {
       im.onerror=()=>reject(Error('Could not decode the finished card.'))
       im.src=url
     })
-    const ratio=image.naturalWidth/image.naturalHeight
-    if (image.naturalWidth<700||image.naturalHeight<980||Math.abs(ratio-5/7)>0.024)
-      throw Error('Use a finished 5:7 portrait card like Death (1060 × 1484), minimum 700 × 980.')
+    if (image.naturalWidth < 1 || image.naturalHeight < 1) throw Error('This image has no usable dimensions.')
     return {width:image.naturalWidth,height:image.naturalHeight}
   } finally {URL.revokeObjectURL(url)}
 }
