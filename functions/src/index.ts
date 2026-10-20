@@ -17,7 +17,7 @@ async function requireOwner(auth: { uid:string; token: Record<string, unknown> }
 }
 function validId(id: unknown): id is string {return typeof id==='string' && /^[A-Za-z0-9_-]{10,80}$/.test(id)}
 
-export const saveOfficialCard = onCall({region, maxInstances: 3, enforceAppCheck: false}, async request => {
+export const saveOfficialCard = onCall({region,invoker:'public', maxInstances: 3, enforceAppCheck: false}, async request => {
   await requireOwner(request.auth)
   let card
   try{card=validateCard(request.data?.card)}catch(e){throw new HttpsError('invalid-argument',e instanceof Error?e.message:'Invalid card')}
@@ -41,7 +41,7 @@ export const saveOfficialCard = onCall({region, maxInstances: 3, enforceAppCheck
   return {id}
 })
 
-export const publishOfficialCard = onCall({region, maxInstances: 3, enforceAppCheck: false}, async request => {
+export const publishOfficialCard = onCall({region,invoker:'public', maxInstances: 3, enforceAppCheck: false}, async request => {
   await requireOwner(request.auth)
   const id=request.data?.id
   if(!validId(id))throw new HttpsError('invalid-argument','Invalid card ID.')
@@ -57,7 +57,7 @@ export const publishOfficialCard = onCall({region, maxInstances: 3, enforceAppCh
   return {published:true}
 })
 
-export const retireOfficialCard = onCall({region, maxInstances: 3, enforceAppCheck: false}, async request => {
+export const retireOfficialCard = onCall({region,invoker:'public', maxInstances: 3, enforceAppCheck: false}, async request => {
   await requireOwner(request.auth)
   const id=request.data?.id
   if(!validId(id))throw new HttpsError('invalid-argument','Invalid card ID.')
@@ -90,7 +90,7 @@ function checkCommand(data: unknown): Command {
   throw new HttpsError('invalid-argument','Invalid battle action.')
 }
 
-export const startPracticeMatch = onCall({region,maxInstances:5,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
+export const startPracticeMatch = onCall({region,invoker:'public',maxInstances:5,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
   const uid=requirePlayer(request.auth)
   if(request.data && (typeof request.data!=='object'||(request.data.restart!==undefined&&typeof request.data.restart!=='boolean')))
     throw new HttpsError('invalid-argument','Invalid practice settings.')
@@ -136,13 +136,13 @@ export const startPracticeMatch = onCall({region,maxInstances:5,timeoutSeconds:3
   })
   return {match:publicView(active),resumed}
 })
-export const getPracticeMatch = onCall({region,maxInstances:5,enforceAppCheck:false}, async request=>{
+export const getPracticeMatch = onCall({region,invoker:'public',maxInstances:5,enforceAppCheck:false}, async request=>{
   const uid=requirePlayer(request.auth)
   const snap=await db.doc(`practiceMatches/${uid}`).get()
   if(!snap.exists)throw new HttpsError('not-found','Start a practice match first.')
   return {match:publicView(snap.get('state') as BattleState)}
 })
-export const takePracticeAction = onCall({region,maxInstances:8,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
+export const takePracticeAction = onCall({region,invoker:'public',maxInstances:8,timeoutSeconds:30,enforceAppCheck:false}, async request=>{
   const uid=requirePlayer(request.auth)
   const version=request.data?.version
   if(!Number.isInteger(version)||version<1)throw new HttpsError('invalid-argument','Missing or invalid match version.')
@@ -174,7 +174,7 @@ export const takePracticeAction = onCall({region,maxInstances:8,timeoutSeconds:3
 })
 
 /** Permanently delete an official draft and public registry entry. No player inventory exists in Phase 3. */
-export const deleteOfficialCard = onCall({region,maxInstances:2,timeoutSeconds:60,enforceAppCheck:false}, async request=>{
+export const deleteOfficialCard = onCall({region,invoker:'public',maxInstances:2,timeoutSeconds:60,enforceAppCheck:false}, async request=>{
   await requireOwner(request.auth)
   const id=request.data?.id
   const confirmation=request.data?.confirmation
@@ -207,7 +207,7 @@ export { joinPvpQueue, leavePvpQueue, getPvpStatus, takePvpAction, getPvpHistory
  * Intended for limited test collections and planned promotional releases.
  * Clients have no direct writes to inventories or issuance records.
  */
-export const grantOfficialCards = onCall({region,maxInstances:3,enforceAppCheck:false},async request=>{
+export const grantOfficialCards = onCall({region,invoker:'public',maxInstances:3,enforceAppCheck:false},async request=>{
   const operatorUid=await requireOwner(request.auth)
   const email=request.data?.recipientEmail,cardId=request.data?.cardId,quantity=request.data?.quantity
   if(typeof email!=='string'||email.length>254||!/^\S+@\S+\.\S+$/.test(email.trim()))
@@ -235,7 +235,7 @@ export const grantOfficialCards = onCall({region,maxInstances:3,enforceAppCheck:
 })
 
 /** One-owner batch grant: distribute exactly one validated 25-card starter deck. */
-export const grantOfficialDeck = onCall({region,maxInstances:2,timeoutSeconds:60,enforceAppCheck:false},async request=>{
+export const grantOfficialDeck = onCall({region,invoker:'public',maxInstances:2,timeoutSeconds:60,enforceAppCheck:false},async request=>{
   const operatorUid=await requireOwner(request.auth)
   const email=request.data?.recipientEmail
   if(typeof email!=='string'||email.length>254||!/^\S+@\S+\.\S+$/.test(email.trim()))
