@@ -5,7 +5,6 @@ import { functions } from '../firebase'
 import { backendError } from '../game/backendErrors'
 import type { OfficialCard } from './types'
 
-type Grant={cardId:string;quantity:number}
 const singleCall=httpsCallable<{recipientEmail:string;cardId:string;quantity:number},{granted:true}>(functions,'grantOfficialCards')
 const deckCall=httpsCallable<{recipientEmail:string;cards:{id:string;qty:number}[]},{granted:true}>(functions,'grantOfficialDeck')
 export function GrantCards({cards,onClose}:{cards:OfficialCard[];onClose:()=>void}){
