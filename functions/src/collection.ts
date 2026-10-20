@@ -51,6 +51,7 @@ export async function awardPracticeWin(tx:Transaction,uid:string,state:BattleSta
   const quantity=Number(owned.get('quantity')||0)
   if(quantity>=999)return
   tx.set(inv,{quantity:quantity+1,updatedAt:FieldValue.serverTimestamp()},{merge:true})
+  tx.set(db.doc(`issuedCardRegistry/${id}`),{everIssued:true,lastIssuedAt:FieldValue.serverTimestamp()},{merge:true})
   tx.set(gate,{awardedAtMs:Date.now(),lastCardId:id},{merge:true})
   return id
 }
