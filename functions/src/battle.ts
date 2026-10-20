@@ -268,8 +268,58 @@ function startTurnEffects(s:BattleState,side:Side){
 export function effectiveFareCost(card:Pick<BattleCard,'cost'|'effect'>):number {
   return Math.max(0,card.cost-(card.effect==='discount_self_cost_1'?1:0))
 }
-export function canPlay(s:BattleState,side:Side,index:number){const p=s[side];if(s.turn!==side||s.winner||!Number.isInteger(index)||index<0||index>=p.hand.length)return false;const c=s.cards[p.hand[index]];return!!c&&p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)}
-export function play(s:BattleState,side:Side,index:number):BattleState|null{if(s.pendingChoice||!canPlay(s,side,index))return null;const next=clone(s),p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id];p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0));if(c.kind==='driver'){p.nextDriverDiscount=0;p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready:false})}effect(next,side,c.effect,c.kind);log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`);return next}
+function availableNopeIndex(s:BattleState,side:Side):number{
+  const p=s[side]
+  return p.hand.findIndex(id=>s.cards[id]?.effect==='nope_cancel_action'&&p.fare>=s.cards[id].cost)
+}
+export function canPlay(s:BattleState,side:Side,index:number){
+  const p=s[side]
+  if(s.turn!==side||s.winner||s.pendingChoice||s.pendingReaction||!Number.isInteger(index)||index<0||index>=p.hand.length)return false
+  const c=s.cards[p.hand[index]]
+  if(!c||c.effect==='nope_cancel_action'||(c.kind==='action'&&(p.actionCardsPlayed||0)>=(p.actionAllowance||1)))return false
+  return p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)
+}
+export function respondToAction(s:BattleState,side:Side,useNope:boolean,index?:number):BattleState|null{
+  const pending=s.pendingReaction
+  if(!pending||pending.responder!==side||s.winner)return null
+  const next=clone(s),decision=next.pendingReaction!,responder=next[side]
+  if(useNope){
+    if(!Number.isInteger(index)||index!<0||index!>=responder.hand.length)return null
+    const counter=next.cards[responder.hand[index!]]
+    if(counter?.effect!=='nope_cancel_action'||responder.fare<counter.cost)return null
+    responder.fare-=counter.cost;responder.hand.splice(index!,1)
+    delete next.pendingReaction
+    log(next,`${fighterLabel(next,side)} played Nope! and cancelled ${next.cards[decision.cardId]?.name||'an Action'}.`)
+    return next
+  }
+  delete next.pendingReaction
+  effect(next,decision.actor,decision.effect,'action')
+  log(next,`${next.cards[decision.cardId]?.name||'Action'} resolved.`)
+  return next
+}
+export function play(s:BattleState,side:Side,index:number):BattleState|null{
+  if(!canPlay(s,side,index))return null
+  let next=clone(s)
+  const p=next[side],id=p.hand.splice(index,1)[0],c=next.cards[id]
+  p.fare-=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))
+  if(c.kind==='driver'){
+    p.nextDriverDiscount=0
+    const ready=(p.quickArrivalCharges||0)>0
+    if(ready)p.quickArrivalCharges=(p.quickArrivalCharges||0)-1
+    p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready})
+    effect(next,side,c.effect,c.kind)
+  }else{
+    p.actionCardsPlayed=(p.actionCardsPlayed||0)+1
+    const rivalSide:Side=side==='player'?'opponent':'player'
+    const nope=availableNopeIndex(next,rivalSide)
+    if(nope>=0){
+      next.pendingReaction={actor:side,responder:rivalSide,cardId:id,effect:c.effect}
+      if(next.mode!=='pvp'&&rivalSide==='opponent')next=respondToAction(next,rivalSide,true,nope)!
+    }else effect(next,side,c.effect,c.kind)
+  }
+  log(next,`${fighterLabel(next,side)} played ${c.name}${c.nickname?` · ${c.nickname}`:''}.`)
+  return next
+}
 export function chooseDiscard(s:BattleState,side:Side,index:number):BattleState|null{
   if(!s.pendingChoice||s.pendingChoice.side!==side||s.turn!==side||!Number.isInteger(index))return null
   const foe=side==='player'?'opponent':'player'
@@ -307,10 +357,13 @@ export function attack(s:BattleState,side:Side,attackerId:string,targetId?:strin
   checkWinner(next)
   return next
 }
-export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice)return s;const next=clone(s),outgoing:Side=next.turn,incoming:Side=outgoing==='player'?'opponent':'player';
+export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice||s.pendingReaction)return s;const next=clone(s),outgoing:Side=next.turn,incoming:Side=outgoing==='player'?'opponent':'player';
   next[outgoing].abilitiesDisabled=false
+  next[outgoing].quickArrivalCharges=0
   for(const unit of next[outgoing].board){unit.abilityLockTurns=0;if((unit.attackDebuffTurns||0)>0){unit.attackDebuffTurns=(unit.attackDebuffTurns||0)-1;if(!unit.attackDebuffTurns)unit.attackDebuff=0}}
   next.turn=incoming;
+  next[incoming].actionCardsPlayed=0
+  next[incoming].actionAllowance=1
   next[incoming].abilitiesDisabled=!!next[incoming].disableNextTurn
   next[incoming].disableNextTurn=0
   for(const unit of next[incoming].board){if(unit.untargetable)unit.untargetable=false}if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
