@@ -14,3 +14,19 @@
 /* Fare Mayhem official domain branding */
 .footer .footer-domain{color:#e6c17c;text-decoration:none;white-space:nowrap}
 .footer .footer-domain:hover,.footer .footer-domain:focus-visible{color:#ffdf9f;text-decoration:underline;text-underline-offset:3px}
+
+/* Linked sign-in settings: the existing Firebase user/owner UID is never replaced. */
+.security-dialog{max-width:540px;max-height:min(90vh,850px);overflow-y:auto}
+.security-identity{display:flex;flex-direction:column;gap:7px;background:#1b2a30;border:1px solid #405155;border-radius:13px;padding:15px;margin:16px 0}
+.security-identity>strong{color:#fff1d8;font-size:15px}
+.security-identity>span{color:#b9cacc;font-size:12px;overflow-wrap:anywhere}
+.security-identity>small{font-size:10px;color:#92a8a8;overflow-wrap:anywhere}
+.security-identity code{font-size:10px;user-select:all}
+.security-identity .security-owner{display:flex;gap:7px;align-items:center;color:#f5ce82;font-weight:700}
+.security-success{display:flex;align-items:flex-start;gap:9px;color:#d4eddc;background:#20392f;border:1px solid #508363;padding:13px 15px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.security-success svg{flex:0 0 auto}
+.security-success p{margin:5px 0 0;color:#bdd1c5}
+.security-safe{display:flex;align-items:flex-start;gap:8px;background:#262e2b;border:1px solid #566040;padding:13px;border-radius:10px;color:#e3dfbe;font-size:12px;line-height:1.6}
+.security-safe svg{flex:0 0 auto;margin-top:1px}
+.security-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:18px}
+@media(max-width:580px){.security-dialog{max-height:86dvh}.security-actions>*{flex:1}.security-identity{padding:12px}}
