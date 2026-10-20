@@ -11,8 +11,9 @@ const changed=(item:Item,key:keyof EditableCard,value:unknown):Item=>({...item,c
  */
 function suggestedFromFilename(name:string):Partial<EditableCard> {
   switch(name.toLowerCase()){
-    case 'fish boy':return {effectKey:'gain_fare_1',ability:'On arrival: slip through traffic and gain 1 Fare.'}
-    case 'jim':return {effectKey:'discount_self_cost_1',ability:'This card costs 1 less Fare to play.'}
+    case 'fish boy':return {nickname:'The Aquatic Oddball',stars:2,cost:3,health:5,effectKey:'gain_fare_1',ability:'On arrival: slip through traffic and gain 1 Fare.'}
+    case 'jim':return {nickname:'The Middle-Class Bore',stars:1,cost:1,health:3,effectKey:'discount_self_cost_1',ability:'This card costs 1 less Fare to play.'}
+    case 'george williamson':return {stars:4,cost:3,health:5,flavor:'A strangely cheerful gentleman whose perfect manners somehow make this ride creepier.'}
     default:return {}
   }
 }
@@ -79,7 +80,7 @@ export function BulkFinishedImport({existing}:{existing:OfficialCard[]}){
   return <div className="finished-batch">
     <div className="finished-batch-intro"><Images size={23}/><div><h3>Option B · Mass import finished cards</h3><p>Select up to 50 complete images—no spreadsheet required. Death's 5:7 portrait is the recommended style, not a required size. Different card dimensions and proportions are accepted, and images are preserved exactly—including their borders, printed words and graphics.</p></div></div>
     <label className="studio-upload"><FileImage size={23}/><span>Select multiple complete cards</span><small>PNG · JPG · WebP · any dimensions · up to 8 MB each. Portrait recommended.</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={running} onChange={e=>void choose(e)}/></label>
-    <p className="studio-hint">Names initially come from filenames. Fish Boy and Jim get suggested effects from their filenames only—not automatic image recognition. Review every rating, stat and ability against the printed card; other cards need your input. All imports remain private drafts.</p>
+    <p className="studio-hint">Names initially come from filenames. Fish Boy, Jim, and George Williamson get editable draft suggestions based on the cards in the example screenshot—not automatic image recognition. Check every detail against each finished card, especially Attack (which is not printed in these examples). Other cards need your input. All imports remain private drafts.</p>
     {items.length>0&&<><div className="finished-batch-totals"><b>{items.length} cards selected</b><span>{invalid} invalid file(s)</span><span>{duplicates} already in the studio</span></div><div className="finished-batch-grid">{items.map((item,i)=><article className={item.valid?'finished-batch-row':'finished-batch-row invalid'} key={item.key}>
       <div className="finished-batch-image">{previews[item.key]?<img src={previews[item.key]} alt={`Full preview of ${item.file.name}`}/>:<FileImage size={29}/>}</div>
       <div className="finished-batch-fields"><b>{item.file.name}</b>{!item.valid&&<p className="studio-warning">{item.message}</p>}
