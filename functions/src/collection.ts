@@ -35,6 +35,7 @@ export const saveCollectionDeck=onCall({region,invoker:'public',cpu:'gcf_gen1',c
         tx.get(db().doc(`cards/${id}`)),tx.get(db().doc(`playerCollections/${uid}/cards/${id}`))
       ])
       if(card.get('releaseAudience')==='beta'&&tester.get('active')!==true)throw new HttpsError('permission-denied','Only active beta testers can build decks with beta-exclusive cards.')
+      if(card.get('effectKey')==='coach_messi_infinite_wlp_dominion'&&n!==1)throw new HttpsError('failed-precondition','Only one Coach Messi per deck.')
       if(card.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God card is allowed per deck.')
       if(!card.exists||card.get('status')!=='published'||!owned.exists||Number(owned.get('quantity')||0)<n)throw new HttpsError('failed-precondition','Your deck includes a card you do not currently own.')
     }
