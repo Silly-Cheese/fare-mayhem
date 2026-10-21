@@ -5,6 +5,7 @@ import { battleEffectCategories, battleEffectOptions, initialCard, type Editable
 import { OfficialCardView } from './OfficialCardView'
 import { BulkImport } from './BulkImport'
 import { GrantCards } from './GrantCards'
+import { BetaProgram } from './BetaProgram'
 import './studio.css'
 
 function friendly(message: string) {
@@ -27,6 +28,7 @@ export function CardStudio() {
   const [progress, setProgress] = useState<number | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [showGrants,setShowGrants] = useState(false)
+  const [showBeta,setShowBeta] = useState(false)
   const [confirm, setConfirm] = useState<'publish' | 'retire' | 'delete' | null>(null)
   const [deleteTyped, setDeleteTyped] = useState('')
   const [tab, setTab] = useState<'details' | 'artwork'>('details')
@@ -58,9 +60,10 @@ export function CardStudio() {
   }
   const preview={ ...card, id:selectedId||'preview',status:'draft' as const }
   return <div className="page-content studio-page page-enter">
-    <div className="studio-head"><div><span className="eyebrow"><ShieldCheck size={15}/> OWNER ACCESS · PRIVATE</span><h1>Card Studio<span className="punctuation">.</span></h1><p>Your drivers. Your rules. Nothing goes public until you say so.</p></div><div className="studio-head-actions"><button className="button outline" type="button" onClick={()=>setShowGrants(v=>!v)}><ShieldCheck size={16}/> {showGrants?'Close Grants':'Player Card Grants'}</button><button className="button outline" type="button" onClick={()=>setShowImport(v=>!v)}><Upload size={16}/> {showImport?'Close Import':'Bulk Import'}</button><button className="button primary" type="button" onClick={createNew}><Plus size={17}/> New card</button></div></div>
+    <div className="studio-head"><div><span className="eyebrow"><ShieldCheck size={15}/> OWNER ACCESS · PRIVATE</span><h1>Card Studio<span className="punctuation">.</span></h1><p>Your drivers. Your rules. Nothing goes public until you say so.</p></div><div className="studio-head-actions"><button className="button outline" type="button" onClick={()=>setShowBeta(v=>!v)}><ShieldCheck size={16}/> {showBeta?'Close Beta Program':'Beta Testers'}</button><button className="button outline" type="button" onClick={()=>setShowGrants(v=>!v)}><ShieldCheck size={16}/> {showGrants?'Close Grants':'Player Card Grants'}</button><button className="button outline" type="button" onClick={()=>setShowImport(v=>!v)}><Upload size={16}/> {showImport?'Close Import':'Bulk Import'}</button><button className="button primary" type="button" onClick={createNew}><Plus size={17}/> New card</button></div></div>
     {showImport&&<BulkImport onClose={()=>setShowImport(false)}/>}
     {showGrants&&<GrantCards cards={drafts} onClose={()=>setShowGrants(false)}/>} 
+    {showBeta&&<BetaProgram cards={drafts} onClose={()=>setShowBeta(false)}/>} 
     <div className="studio-layout">
       <aside className="studio-roster"><div className="studio-roster-top"><span>YOUR WORKBENCH</span><b>{drafts.length} cards</b></div><button className={`studio-roster-item ${!selectedId?'active':''}`} onClick={createNew}><Plus size={18}/><span>Untitled new card<small>Start from scratch</small></span></button>
         {drafts.map(d=><button key={d.id} className={`studio-roster-item ${selectedId===d.id?'active':''}`} onClick={()=>select(d.id)}><span className="studio-roster-thumb">{d.finishedUrl||d.cartoonUrl||d.originalUrl?<img src={d.finishedUrl||d.cartoonUrl||d.originalUrl} alt=""/>:<ImagePlus size={17}/>}</span><span>{d.name}<small>{d.status==='published'?'● Public':d.status==='retired'?'◌ Unpublished':'○ Draft'} · {d.edition}</small></span></button>)}
