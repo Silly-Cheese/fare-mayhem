@@ -1,14 +1,14 @@
 /** Server-owned Fare Mayhem rules. No Firebase imports: reproducible and independently testable. */
 export type Side = 'player' | 'opponent'
-export const EFFECTS = ["none","discount_self_cost_1","steal_fare_1","steal_fare_2","deal_reputation_1","deal_reputation_2","deal_reputation_3","heal_reputation_1","heal_reputation_2","heal_reputation_4","heal_reputation_6","deal_driver_2","deal_driver_3","deal_driver_5","draw_1","draw_2","draw_3","gain_fare_1","gain_fare_2","gain_fare_3","drain_fare_2","deal_all_enemies_1","heal_ally_2","buff_ally_attack_1","stun_enemy_1","discard_enemy_1","shield_self_2","attack_heal_reputation_1","attack_steal_fare_1","attack_draw_1","defeat_deal_reputation_2","defeat_heal_reputation_2","defeat_draw_1","turn_heal_reputation_1","turn_gain_fare_1","turn_buff_attack_1","summon_beetle_1_1","invisible_first_hit_shield","death_deal_3_damage","third_eye_reveal_discard_1","dwarf_jar_fare_1_heal_2","diva_silence_next_clock","logan_drum_heal_1_rep_1","toddler_confuse_next_turn","jim_boring_reputation_1_and_untargetable","madhatter_chaos_draw_and_blast","sun_solar_flare_all_5","centipede_lifesteal_2","george_polite_rep_2_discount_1","trump_boast_fare_3_rep_minus_2","bob_awkward_stare_attack_minus_2","ja_candy_fare_1_heal_1","divine_judgment_resurrection","fish_boy_slipstream_shield_2","prof_khashed_precalc_confusion","beatrice_swarm_lifesteal_2","reputation_repair_restore_2","tip_boost_gain_2_fare","detour_return_driver_to_hand","lucky_break_prevent_next_damage","backseat_boost_add_2_hp","draw_up_draw_2","nope_cancel_action","second_wind_heal_driver_2","switcheroo_swap_2_drivers","fare_boost_gain_2_fare","quick_arrival_instant_driver","team_spirit_all_drivers_hp_1","steal_spotlight_steal_1_fare","total_chaos_cycle_1_all","extra_turn_extra_action"] as const
+export const EFFECTS = ["none","discount_self_cost_1","steal_fare_1","steal_fare_2","deal_reputation_1","deal_reputation_2","deal_reputation_3","heal_reputation_1","heal_reputation_2","heal_reputation_4","heal_reputation_6","deal_driver_2","deal_driver_3","deal_driver_5","draw_1","draw_2","draw_3","gain_fare_1","gain_fare_2","gain_fare_3","drain_fare_2","deal_all_enemies_1","heal_ally_2","buff_ally_attack_1","stun_enemy_1","discard_enemy_1","shield_self_2","attack_heal_reputation_1","attack_steal_fare_1","attack_draw_1","defeat_deal_reputation_2","defeat_heal_reputation_2","defeat_draw_1","turn_heal_reputation_1","turn_gain_fare_1","turn_buff_attack_1","summon_beetle_1_1","invisible_first_hit_shield","death_deal_3_damage","third_eye_reveal_discard_1","dwarf_jar_fare_1_heal_2","diva_silence_next_clock","logan_drum_heal_1_rep_1","toddler_confuse_next_turn","jim_boring_reputation_1_and_untargetable","madhatter_chaos_draw_and_blast","sun_solar_flare_all_5","centipede_lifesteal_2","george_polite_rep_2_discount_1","trump_boast_fare_3_rep_minus_2","bob_awkward_stare_attack_minus_2","ja_candy_fare_1_heal_1","divine_judgment_resurrection","fish_boy_slipstream_shield_2","prof_khashed_precalc_confusion","beatrice_swarm_lifesteal_2","reputation_repair_restore_2","tip_boost_gain_2_fare","detour_return_driver_to_hand","lucky_break_prevent_next_damage","backseat_boost_add_2_hp","draw_up_draw_2","nope_cancel_action","second_wind_heal_driver_2","switcheroo_swap_2_drivers","fare_boost_gain_2_fare","quick_arrival_instant_driver","team_spirit_all_drivers_hp_1","steal_spotlight_steal_1_fare","total_chaos_cycle_1_all","extra_turn_extra_action","jackson_connell_hand_infiltration","coach_messi_infinite_wlp_dominion","fighter_jet_supersonic_strike","bronson_act_brainstorm"] as const
 export type Effect = (typeof EFFECTS)[number]
 export const ACTION_ONLY_EFFECTS = ["reputation_repair_restore_2","tip_boost_gain_2_fare","detour_return_driver_to_hand","lucky_break_prevent_next_damage","backseat_boost_add_2_hp","draw_up_draw_2","nope_cancel_action","second_wind_heal_driver_2","switcheroo_swap_2_drivers","fare_boost_gain_2_fare","quick_arrival_instant_driver","team_spirit_all_drivers_hp_1","steal_spotlight_steal_1_fare","total_chaos_cycle_1_all","extra_turn_extra_action"] as readonly string[]
 export type BattleCard = { id:string; name:string; nickname:string; kind:'driver'|'action'; cost:number; attack:number; health:number; effect:Effect; imageUrl:string; fullCard?:boolean; rating:string; source:'training'|'official' }
-export type BattleUnit = { id:string; cardId:string; hp:number; ready:boolean; shield?:number; attackBonus?:number; stunnedTurns?:number; firstHitProtected?:boolean; revived?:boolean; untargetable?:boolean; abilityLockTurns?:number; attackDebuff?:number; attackDebuffTurns?:number; hpBoost?:number }
-export type Fighter = { reputation:number; fare:number; maxFare:number; deck:string[]; hand:string[]; board:BattleUnit[]; fatigue:number; nextDriverDiscount?:number; cancelNextClock?:number; disableNextTurn?:number; abilitiesDisabled?:boolean; actionCardsPlayed?:number; actionAllowance?:number; quickArrivalCharges?:number }
-export type BattleState = { player:Fighter; opponent:Fighter; cards:Record<string,BattleCard>; turn:Side; round:number; winner:Side|null; log:string[]; nextId:number; version:number; mode?:'practice'|'pvp'; pendingChoice?:{side:Side;kind:'third_eye_discard'|'action_target';effect?:Effect;first?:{side:Side;unitId:string}}; pendingReaction?:{actor:Side;responder:Side;cardId:string;effect:Effect} }
-export type Command = {type:'play';index:number}|{type:'attack';attackerId:string;targetId?:string}|{type:'end'}|{type:'choose_discard';index:number}|{type:'choose_target';unitId:string;targetSide:Side}|{type:'react';useNope:boolean;index?:number}
-export type View = {player:Fighter;opponent:Omit<Fighter,'hand'|'deck'> & {handCount:number;deckCount:number};cards:Record<string,BattleCard>;turn:Side;round:number;winner:Side|null;log:string[];version:number;pendingChoice?:{side:Side;kind:'third_eye_discard'|'action_target';effect?:Effect;first?:{side:Side;unitId:string}}; pendingReaction?:{actor:Side;responder:Side;cardId:string;effect:Effect}; revealedOpponentHand?:string[] }
+export type BattleUnit = { id:string; cardId:string; hp:number; ready:boolean; shield?:number; attackBonus?:number; stunnedTurns?:number; firstHitProtected?:boolean; revived?:boolean; untargetable?:boolean; abilityLockTurns?:number; attackDebuff?:number; attackDebuffTurns?:number; hpBoost?:number;immune?:boolean }
+export type Fighter = { reputation:number; fare:number; maxFare:number; deck:string[]; hand:string[]; board:BattleUnit[]; fatigue:number; infiltrators?:string[]; nextDriverDiscount?:number; cancelNextClock?:number; disableNextTurn?:number; abilitiesDisabled?:boolean; actionCardsPlayed?:number; actionAllowance?:number; quickArrivalCharges?:number }
+export type BattleState = { player:Fighter; opponent:Fighter; cards:Record<string,BattleCard>; turn:Side; round:number; winner:Side|null; log:string[]; nextId:number; version:number; mode?:'practice'|'pvp'; pendingChoice?:{side:Side;kind:'third_eye_discard'|'action_target'|'bronson_choose';effect?:Effect;first?:{side:Side;unitId:string};options?:string[]}; pendingReaction?:{actor:Side;responder:Side;cardId:string;effect:Effect} }
+export type Command = {type:'play';index:number}|{type:'attack';attackerId:string;targetId?:string}|{type:'end'}|{type:'choose_discard';index:number}|{type:'choose_target';unitId:string;targetSide:Side}|{type:'react';useNope:boolean;index?:number}|{type:'choose_deck_card';index:number}|{type:'remove_jackson';index:number}
+export type View = {player:Fighter;opponent:Omit<Fighter,'hand'|'deck'> & {handCount:number;deckCount:number};cards:Record<string,BattleCard>;turn:Side;round:number;winner:Side|null;log:string[];version:number;pendingChoice?:{side:Side;kind:'third_eye_discard'|'action_target'|'bronson_choose';effect?:Effect;first?:{side:Side;unitId:string};options?:string[]}; pendingReaction?:{actor:Side;responder:Side;cardId:string;effect:Effect}; revealedOpponentHand?:string[] }
 const SC:Record<string,BattleCard>={
   orb: {id:'orb',name:'Kris Kringle',nickname:'The Orb',kind:'driver',cost:3,attack:2,health:5,effect:'steal_fare_1',imageUrl:'',rating:'★★☆☆☆',source:'training'},
   detour:{id:'detour',name:'Detour Dave',nickname:'The Shortcut',kind:'driver',cost:4,attack:3,health:4,effect:'deal_reputation_1',imageUrl:'',rating:'★★★☆☆',source:'training'},
@@ -22,7 +22,7 @@ const SC:Record<string,BattleCard>={
 const TRAINING_DECK=[...Array(3).fill('orb'),...Array(3).fill('detour'),...Array(4).fill('miles'),...Array(4).fill('goblin'),...Array(3).fill('snack'),...Array(3).fill('ticket'),...Array(3).fill('pitstop'),...Array(2).fill('surge')] as string[]
 export const trainingCards = () => ({...SC})
 function shuffle<T>(input:T[],random:()=>number):T[]{const a=[...input];for(let i=a.length-1;i>0;i--){const j=Math.min(i,Math.max(0,Math.floor(random()*(i+1))));[a[i],a[j]]=[a[j],a[i]]}return a}
-function createFighter(deck:string[],random:()=>number):Fighter{const cards=shuffle(deck,random);return{reputation:20,fare:1,maxFare:1,deck:cards.slice(5),hand:cards.slice(0,5),board:[],fatigue:0,actionCardsPlayed:0,actionAllowance:1,quickArrivalCharges:0}}
+function createFighter(deck:string[],random:()=>number):Fighter{const cards=shuffle(deck,random);return{reputation:20,fare:1,maxFare:1,deck:cards.slice(5),hand:cards.slice(0,5),board:[],fatigue:0,infiltrators:[],actionCardsPlayed:0,actionAllowance:1,quickArrivalCharges:0}}
 export function createBattle(published:BattleCard[],random:()=>number=Math.random,ownedCardIds?:string[],opponentOwnedIds?:string[]):BattleState{
   const cards=trainingCards();const deck=[...TRAINING_DECK]
   const eligible=published.filter(c=>c.source==='official'&&EFFECTS.includes(c.effect)&&c.cost>=0&&c.cost<=10).slice(0,ownedCardIds||opponentOwnedIds?200:8)
@@ -37,8 +37,9 @@ function clone(s:BattleState):BattleState{return structuredClone(s)}
 function fighterLabel(s:BattleState,side:Side){return s.mode==='pvp'?(side==='player'?'Dispatcher 1':'Dispatcher 2'):(side==='player'?'You':'Dispatch AI')}
 function log(s:BattleState,text:string){s.log=[text,...s.log].slice(0,24)}
 function checkWinner(s:BattleState){if(s.player.reputation<=0&&s.opponent.reputation<=0)s.winner='opponent';else if(s.player.reputation<=0)s.winner='opponent';else if(s.opponent.reputation<=0)s.winner='player'}
-function draw(s:BattleState,side:Side,count=1){const p=s[side];for(let i=0;i<count;i++){if(p.deck.length){const id=p.deck.shift()!;if(p.hand.length<8)p.hand.push(id)}else{p.fatigue++;p.reputation-=p.fatigue;log(s,`${fighterLabel(s,side)} lost ${p.fatigue} Reputation to fatigue.`)}}checkWinner(s)}
+function draw(s:BattleState,side:Side,count=1,handCap=8){const p=s[side];for(let i=0;i<count;i++){if(p.deck.length){const id=p.deck.shift()!;if(p.hand.length<handCap)p.hand.push(id)}else{p.fatigue++;p.reputation-=p.fatigue;log(s,`${fighterLabel(s,side)} lost ${p.fatigue} Reputation to fatigue.`)}}checkWinner(s)}
 function damageUnit(unit:BattleUnit,damage:number) {
+  if(unit.immune)return
   if(damage>0&&unit.firstHitProtected){unit.firstHitProtected=false;return}
   if(damage<=0)return
   const absorbed=Math.min(unit.shield||0,damage)
@@ -47,10 +48,10 @@ function damageUnit(unit:BattleUnit,damage:number) {
 }
 function defeatedUnits(s:BattleState,side:Side) {
   const board=s[side].board
-  const defeated=board.filter(u=>u.hp<=0)
+  const defeated=board.filter(u=>u.hp<=0&&!u.immune)
   const revived=defeated.filter(u=>s.cards[u.cardId]?.effect==='divine_judgment_resurrection'&&!u.revived)
   for(const unit of revived){unit.hp=s.cards[unit.cardId].health;unit.revived=true;unit.ready=false;log(s,'God returns at full HP for the first and only time.')}
-  s[side].board=board.filter(u=>u.hp>0||revived.includes(u))
+  s[side].board=board.filter(u=>u.hp>0||u.immune||revived.includes(u))
   for(const unit of defeated.filter(u=>!revived.includes(u))){
     const key=s.cards[unit.cardId]?.effect
     const fighter=s[side],rival=s[side==='player'?'opponent':'player']
@@ -65,8 +66,8 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
   const p=s[side],foe=s[side==='player'?'opponent':'player']
   const enemySide:Side=side==='player'?'opponent':'player'
   const justPlayed=p.board.at(-1)
-  const enemy=()=>foe.board.find(u=>!u.untargetable)
-  if(p.abilitiesDisabled && kind==='driver' && what!=='none' && what!=='discount_self_cost_1')return
+  const enemy=()=>foe.board.find(u=>!u.untargetable&&!u.immune)
+  if(p.abilitiesDisabled && kind==='driver' && what!=='none' && what!=='discount_self_cost_1' && what!=='coach_messi_infinite_wlp_dominion')return
   switch(what){
     case 'steal_fare_1':case 'steal_fare_2':{
       const n=Math.min(Number(what.slice(-1)),foe.fare,10-p.fare);foe.fare-=n;p.fare+=n;break
@@ -100,7 +101,7 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       break
     }
     case 'stun_enemy_1':{
-      const target=foe.board[0];if(target){target.ready=false;target.stunnedTurns=Math.max(1,target.stunnedTurns||0)}
+      const target=foe.board.find(u=>!u.immune);if(target){target.ready=false;target.stunnedTurns=Math.max(1,target.stunnedTurns||0)}
       break
     }
     case 'discard_enemy_1':if(foe.hand.length){const discarded=foe.hand.shift()!;log(s,`${fighterLabel(s,side)} forced a discard of ${s.cards[discarded]?.name||'a card'}.`)}break
@@ -152,7 +153,7 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       break
     }
     case 'divine_judgment_resurrection':
-      for(const target of foe.board)target.hp=0
+      for(const target of foe.board)if(!target.immune)target.hp=0
       defeatedUnits(s,enemySide)
       for(const unit of p.board)unit.hp=s.cards[unit.cardId].health
       draw(s,side,5);p.fare=10;break
@@ -205,7 +206,8 @@ function eligibleActionTargets(s:BattleState,actor:Side,key:Effect,first?:{side:
   const all=([...s.player.board.map(unit=>({side:'player' as Side,unit})),
     ...s.opponent.board.map(unit=>({side:'opponent' as Side,unit}))])
   return all.filter(({side,unit})=>{
-    if(side!==actor&&unit.untargetable)return false
+    if(side!==actor&&(unit.untargetable||unit.immune))return false
+    if(unit.immune&&(key==='detour_return_driver_to_hand'||key==='switcheroo_swap_2_drivers'))return false
     if(first&&side===first.side&&unit.id===first.unitId)return false
     if(key==='detour_return_driver_to_hand'&&s[side].hand.length>=8)return false
     return true
@@ -247,6 +249,7 @@ export function chooseTarget(s:BattleState,side:Side,targetSide:Side,unitId:stri
 function afterAttack(s:BattleState,side:Side,unit:BattleUnit){
   const key=s.cards[unit.cardId]?.effect
   const p=s[side],foe=s[side==='player'?'opponent':'player']
+  if(unit.immune)return
   if(p.abilitiesDisabled||(unit.abilityLockTurns||0)>0)return
   if(key==='attack_heal_reputation_1')p.reputation=Math.min(20,p.reputation+1)
   else if(key==='attack_steal_fare_1'){const n=Math.min(1,foe.fare,10-p.fare);foe.fare-=n;p.fare+=n}
@@ -258,6 +261,7 @@ function startTurnEffects(s:BattleState,side:Side){
   const fighter=s[side]
   for(const unit of [...fighter.board]){
     const key=s.cards[unit.cardId]?.effect
+    if(key==='coach_messi_infinite_wlp_dominion'){s[side==='player'?'opponent':'player'].reputation-=5;checkWinner(s);continue}
     if(fighter.abilitiesDisabled||(unit.abilityLockTurns||0)>0)continue
     if((fighter.cancelNextClock||0)>0&&key?.startsWith('turn_')){fighter.cancelNextClock=0;continue}
     if(key==='turn_heal_reputation_1')s[side].reputation=Math.min(20,s[side].reputation+1)
