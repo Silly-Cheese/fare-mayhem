@@ -1,3 +1,4 @@
+export type ReleaseAudience = 'public' | 'beta'
 export type Rarity = 'standard' | 'transcendent'
 export const battleEffectOptions = [
   {value:"none",category:"Basic",label:"No additional effect",help:"No additional effect. This card relies on its normal stats."},
@@ -80,6 +81,7 @@ export type OfficialCard = {
   id: string
   name: string
   nickname: string
+  releaseAudience: ReleaseAudience
   kind: CardKind
   rarity: Rarity
   stars: number
@@ -104,7 +106,7 @@ export type OfficialCard = {
 }
 export type EditableCard = Omit<OfficialCard, 'id' | 'status' | 'updatedAt' | 'publishedAt'>
 export const initialCard: EditableCard = {
-  name: '', nickname: '', kind: 'driver', rarity: 'standard', stars: 1,
+  name: '', nickname: '', releaseAudience: 'public', kind: 'driver', rarity: 'standard', stars: 1,
   transcendentLabel: '???', cost: 2, attack: 2, health: 3,
   ability: '', flavor: '', customerReview: '', edition: 'First Edition', effectKey: 'none',
   originalUrl: '', originalStoragePath: '', cartoonUrl: '', cartoonStoragePath: '', finishedUrl: '', finishedStoragePath: ''
