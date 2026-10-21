@@ -83,7 +83,7 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
     case 'draw_1':case 'draw_2':case 'draw_3':
       draw(s,side,Number(what.slice(-1)));break
     case 'gain_fare_1':case 'gain_fare_2':case 'gain_fare_3':
-      p.fare=Math.min(10,p.fare+Number(what.slice(-1)));break
+      p.fare=Math.min(20,p.fare+Number(what.slice(-1)));break
     case 'drain_fare_2':foe.fare=Math.max(0,foe.fare-2);break
     case 'deal_all_enemies_1':
       foe.board.forEach(u=>damageUnit(u,1));defeatedUnits(s,side==='player'?'opponent':'player');break
@@ -104,8 +104,30 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       const target=foe.board.find(u=>!u.immune);if(target){target.ready=false;target.stunnedTurns=Math.max(1,target.stunnedTurns||0)}
       break
     }
-    case 'discard_enemy_1':if(foe.hand.length){const discarded=foe.hand.shift()!;log(s,`${fighterLabel(s,side)} forced a discard of ${s.cards[discarded]?.name||'a card'}.`)}break
+    case 'discard_enemy_1':{const i=foe.hand.findIndex(id=>s.cards[id]?.effect!=='jackson_connell_hand_infiltration');if(i>=0){const discarded=foe.hand.splice(i,1)[0];log(s,`${fighterLabel(s,side)} forced a discard of ${s.cards[discarded]?.name||'a card'}.`)}break}
 
+    case 'jackson_connell_hand_infiltration':
+      // play() transfers a special hand-only copy into the opponent's hand.
+      break
+    case 'coach_messi_infinite_wlp_dominion':
+      // Banish removes Drivers directly; God's resurrection must never trigger.
+      foe.board=[]
+      p.reputation=20
+      for(const unit of p.board)unit.hp=s.cards[unit.cardId].health+(unit.hpBoost||0)
+      draw(s,side,10,20)
+      p.fare=20
+      log(s,'Coach Messi banished every opposing Driver, including Divine Drivers.')
+      break
+    case 'fighter_jet_supersonic_strike':{
+      const target=enemy()
+      if(target){damageUnit(target,2);defeatedUnits(s,enemySide)}
+      p.fare=Math.min(20,p.fare+1)
+      break
+    }
+    case 'bronson_act_brainstorm':
+      p.reputation-=1
+      if(p.deck.length)s.pendingChoice={side,kind:'bronson_choose',options:p.deck.slice(0,3)}
+      break
     case 'summon_beetle_1_1':
       if(p.board.length<3){s.cards.beetle_token={id:'beetle_token',name:'Beetle',nickname:'Beetle Boy companion',kind:'driver',cost:0,attack:1,health:1,effect:'none',imageUrl:'',rating:'',source:'training'};p.board.push({id:`unit-${s.nextId++}`,cardId:'beetle_token',hp:1,ready:false})}
       break
@@ -114,10 +136,10 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       const target=enemy();if(target){damageUnit(target,3);defeatedUnits(s,enemySide)}break
     }
     case 'third_eye_reveal_discard_1':
-      if(foe.hand.length)s.pendingChoice={side,kind:'third_eye_discard'}
+      if(foe.hand.some(id=>s.cards[id]?.effect!=='jackson_connell_hand_infiltration'))s.pendingChoice={side,kind:'third_eye_discard'}
       break
     case 'dwarf_jar_fare_1_heal_2':
-      p.fare=Math.min(10,p.fare+1);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+2);break
+      p.fare=Math.min(20,p.fare+1);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+2);break
     case 'diva_silence_next_clock':foe.cancelNextClock=1;break
     case 'logan_drum_heal_1_rep_1':
       p.reputation=Math.min(20,p.reputation+1);if(justPlayed)justPlayed.hp=Math.min(s.cards[justPlayed.cardId].health,justPlayed.hp+1);break
@@ -141,13 +163,13 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
     case 'george_polite_rep_2_discount_1':
       p.reputation=Math.min(20,p.reputation+2);p.nextDriverDiscount=(p.nextDriverDiscount||0)+1;break
     case 'trump_boast_fare_3_rep_minus_2':
-      p.fare=Math.min(10,p.fare+3);p.reputation-=2;break
+      p.fare=Math.min(20,p.fare+3);p.reputation-=2;break
     case 'bob_awkward_stare_attack_minus_2':{
       const target=enemy();if(target){target.attackDebuff=2;target.attackDebuffTurns=1}
       break
     }
     case 'ja_candy_fare_1_heal_1':{
-      p.fare=Math.min(10,p.fare+1)
+      p.fare=Math.min(20,p.fare+1)
       const target=p.board.find(u=>u.hp<s.cards[u.cardId].health)
       if(target)target.hp=Math.min(s.cards[target.cardId].health,target.hp+1)
       break
@@ -158,13 +180,13 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       for(const unit of p.board)unit.hp=s.cards[unit.cardId].health
       draw(s,side,5);p.fare=10;break
     case 'fish_boy_slipstream_shield_2':
-      p.fare=Math.min(10,p.fare+1);if(justPlayed)justPlayed.shield=Math.min(10,(justPlayed.shield||0)+2);break
+      p.fare=Math.min(20,p.fare+1);if(justPlayed)justPlayed.shield=Math.min(10,(justPlayed.shield||0)+2);break
     case 'prof_khashed_precalc_confusion':
       foe.fare=Math.max(0,foe.fare-1);if(enemy())enemy()!.abilityLockTurns=1;break
     case 'reputation_repair_restore_2':
       p.reputation=Math.min(20,p.reputation+2);break
     case 'tip_boost_gain_2_fare':case 'fare_boost_gain_2_fare':
-      p.fare=Math.min(10,p.fare+2);break
+      p.fare=Math.min(20,p.fare+2);break
     case 'draw_up_draw_2':draw(s,side,2);break
     case 'steal_spotlight_steal_1_fare':{
       // Fare belongs to players in the engine rather than individual Drivers.
@@ -185,8 +207,8 @@ function effect(s:BattleState,side:Side,what:Effect,kind:'driver'|'action'='driv
       for(const targetSide of [side,enemySide]){
         const targetFighter=s[targetSide]
         if(targetFighter.hand.length){
-          const discard=targetFighter.hand.shift()!
-          log(s,`${fighterLabel(s,targetSide)} discarded ${s.cards[discard]?.name||'a card'} during Total Chaos.`)
+          const index=targetFighter.hand.findIndex(id=>s.cards[id]?.effect!=='jackson_connell_hand_infiltration')
+          if(index>=0){const discard=targetFighter.hand.splice(index,1)[0];log(s,`${fighterLabel(s,targetSide)} discarded ${s.cards[discard]?.name||'a card'} during Total Chaos.`)}
         }
         draw(s,targetSide,1)
       }
@@ -265,7 +287,7 @@ function startTurnEffects(s:BattleState,side:Side){
     if(fighter.abilitiesDisabled||(unit.abilityLockTurns||0)>0)continue
     if((fighter.cancelNextClock||0)>0&&key?.startsWith('turn_')){fighter.cancelNextClock=0;continue}
     if(key==='turn_heal_reputation_1')s[side].reputation=Math.min(20,s[side].reputation+1)
-    else if(key==='turn_gain_fare_1')s[side].fare=Math.min(10,s[side].fare+1)
+    else if(key==='turn_gain_fare_1')s[side].fare=Math.min(20,s[side].fare+1)
     else if(key==='turn_buff_attack_1')unit.attackBonus=Math.min(5,(unit.attackBonus||0)+1)
   }
 }
@@ -281,8 +303,8 @@ export function canPlay(s:BattleState,side:Side,index:number){
   const p=s[side]
   if(s.turn!==side||s.winner||s.pendingChoice||s.pendingReaction||!Number.isInteger(index)||index<0||index>=p.hand.length)return false
   const c=s.cards[p.hand[index]]
-  if(!c||c.effect==='nope_cancel_action'||(c.kind==='action'&&(p.actionCardsPlayed||0)>=(p.actionAllowance||1)))return false
-  return p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3)
+  if(!c||p.infiltrators?.includes(p.hand[index])||c.effect==='nope_cancel_action'||(c.kind==='action'&&(p.actionCardsPlayed||0)>=(p.actionAllowance||1)))return false
+  return p.fare>=Math.max(0,effectiveFareCost(c)-(c.kind==='driver'?(p.nextDriverDiscount||0):0))&&(c.kind==='action'||p.board.length<3||c.effect==='jackson_connell_hand_infiltration')
 }
 export function respondToAction(s:BattleState,side:Side,useNope:boolean,index?:number):BattleState|null{
   const pending=s.pendingReaction
@@ -311,8 +333,16 @@ export function play(s:BattleState,side:Side,index:number):BattleState|null{
     p.nextDriverDiscount=0
     const ready=(p.quickArrivalCharges||0)>0
     if(ready)p.quickArrivalCharges=(p.quickArrivalCharges||0)-1
-    p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready})
-    effect(next,side,c.effect,c.kind)
+    if(c.effect!=='jackson_connell_hand_infiltration')p.board.push({id:`unit-${next.nextId++}`,cardId:id,hp:c.health,ready,immune:c.effect==='coach_messi_infinite_wlp_dominion'})
+    if(c.effect==='jackson_connell_hand_infiltration'){
+      const rivalSide:Side=side==='player'?'opponent':'player'
+      const foe=next[rivalSide]
+      const intruderId=`intruder-${next.nextId++}`
+      next.cards[intruderId]={...c,id:intruderId}
+      foe.hand.push(intruderId)
+      foe.infiltrators=[...(foe.infiltrators||[]),intruderId]
+      log(next,`Jackson Connell infiltrated ${fighterLabel(next,rivalSide)}’s hand.`)
+    }else effect(next,side,c.effect,c.kind)
   }else{
     p.actionCardsPlayed=(p.actionCardsPlayed||0)+1
     const rivalSide:Side=side==='player'?'opponent':'player'
@@ -329,13 +359,14 @@ export function chooseDiscard(s:BattleState,side:Side,index:number):BattleState|
   if(!s.pendingChoice||s.pendingChoice.side!==side||s.turn!==side||!Number.isInteger(index))return null
   const foe=side==='player'?'opponent':'player'
   if(index<0||index>=s[foe].hand.length)return null
+  if(s.cards[s[foe].hand[index]]?.effect==='jackson_connell_hand_infiltration')return null
   const next=clone(s),removed=next[foe].hand.splice(index,1)[0]
   delete next.pendingChoice
   log(next,`${fighterLabel(next,side)} used Third-Eye and discarded ${next.cards[removed]?.name||'a card'}.`)
   return next
 }
 export function attack(s:BattleState,side:Side,attackerId:string,targetId?:string):BattleState|null{
-  if(s.turn!==side||s.winner||s.pendingChoice)return null
+  if(s.turn!==side||s.winner||s.pendingChoice||s.pendingReaction)return null
   const source=s[side].board.find(u=>u.id===attackerId)
   const foe=s[side==='player'?'opponent':'player']
   if(!source?.ready)return null
@@ -371,7 +402,10 @@ export function endTurn(s:BattleState):BattleState{if(s.winner||s.pendingChoice|
   next[incoming].actionAllowance=1
   next[incoming].abilitiesDisabled=!!next[incoming].disableNextTurn
   next[incoming].disableNextTurn=0
-  for(const unit of next[incoming].board){if(unit.untargetable)unit.untargetable=false}if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=p.maxFare;p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
+  for(const unit of next[incoming].board){if(unit.untargetable)unit.untargetable=false}if(incoming==='player')next.round++;const p=next[incoming];p.maxFare=Math.min(10,p.maxFare+(incoming==='player'?1:next.round===1?0:1));p.fare=Math.min(20,Math.max(p.fare,p.maxFare));
+  const parasites=(p.infiltrators||[]).filter(id=>p.hand.includes(id)&&next.cards[id]?.effect==='jackson_connell_hand_infiltration')
+  p.infiltrators=parasites
+  if(parasites.length){p.reputation-=2*parasites.length;log(next,`Jackson Connell drained ${2*parasites.length} Reputation.`);checkWinner(next);if(next.winner)return next}p.board.forEach(u=>{if((u.stunnedTurns||0)>0){u.ready=false;u.stunnedTurns=(u.stunnedTurns||0)-1}else u.ready=true});startTurnEffects(next,incoming);draw(next,incoming);log(next,`${fighterLabel(next,incoming)} turn. Fare topped up.`);return next}
 /**
  * Dispatch AI takes a full, server-authoritative turn.
  * It attacks with ready units, spends Fare, attacks with any remaining ready units,
