@@ -1,34 +1,42 @@
-# Fare Mayhem — Beta Tester Program
+# Fare Mayhem — curated Beta Tester cards and exclusive editions
 
-Fare Mayhem's **verified single owner** can assign existing player accounts as Beta Testers from **Card Studio → Beta Testers**.
+The owner can decide **exactly which published cards every tester receives**, in what quantities, without random assignment. New cards can be marked **Beta Only** so normal players cannot access them as collectible releases.
 
-## How it works
+## Assign testers and issue chosen cards
 
-1. The prospective tester first registers or signs in to a normal Fare Mayhem account (Google or email/password).
-2. The owner opens Card Studio → **Beta Testers**, enters the player's existing Firebase Authentication email and selects **Assign Beta Tester**.
-3. The account now has private, server-verified beta status. In **My Collection**, the player sees **VERIFIED BETA TESTER** plus their reward status.
-4. Once at least **five different standard official cards** have been published, the owner selects **Send 5 free cards** for that person and confirms.
-5. A trusted Cloud Function picks five distinct published standard cards, checks inventory limits and grants them atomically. The cards immediately belong to the player's existing collection; the player may need to click **Refresh**.
-6. The owner can remove beta status or restore it from the roster. **Earned cards remain owned** even after beta status ends.
+1. Open **Card Studio → Beta Testers** under the verified owner account.
+2. Enter an existing registered player's email and select **Assign Beta Tester**.
+3. Select **Choose cards** beside that tester's name.
+4. Set quantities for any published card (public or beta-only). You may select up to 25 total copies in a grant.
+5. Click **Send one-time welcome gift** for the first grant, or **Send additional beta drop** as new beta-only releases are introduced.
+6. Review the exact card names and copy counts in the confirmation. Inventory changes are applied and audited by Cloud Functions.
 
-## Welcome gift rules
+A tester can have exactly one welcome gift, even if removed and restored. The owner can send **additional selected drops** afterward; each is separately audited. No grants happen automatically on assigning a beta account. The original 5-random-standard-cards approach has been replaced.
 
-- **One reward per registered player UID, ever**, including deactivated and reactivated beta testers.
-- Five **different** already-published **standard** cards, one copy each. Exceptional 6/10-star, Sun, Divine and transcendent cards are not included in the random pack.
-- The reward is not created or claimed by browser code; only the verified owner may trigger it.
-- A single Firestore transaction checks the beta assignment, immutable reward-claim document, each card's published status, and inventory capacity before updating all five owned-card quantities.
-- The transaction also writes an issuance audit and marks each card as issued, which prevents permanent deletion of owned official cards.
-- If there are fewer than five standard published cards, assign testers first and distribute packs later.
-- Additional discretionary cards can be awarded via the existing **Card Studio → Player Card Grants** system.
-- Welcome packs are not a complete 25-card deck. To enable immediate full-deck PvP, the owner may use the existing audited 25-card starter-deck grant feature.
+## Make new cards exclusive to active beta testers
 
-## Security and data model
+1. In Card Studio choose **New card** (or use bulk CSV/JSON/image import).
+2. Choose **Who can receive this card? → Beta Only**. JSON can also specify `"releaseAudience": "beta"` for bulk import. Image-only bulk import has an **Availability → Beta Only** selection on each row.
+3. Upload its full finished design, save the draft and publish normally.
+4. Choose exactly which active testers receive it through **Beta Testers → Choose cards**. You can also issue beta-only cards to active testers through owner **Player Card Grants**.
 
-The server checks Firebase Auth's `fmOwner` custom claim **and** the matching `_system/owner` UID before reading the owner roster or writing any beta flags or cards. Assigning testers **does not give them owner controls**. Roles are stored at `betaTesters/{uid}`, one-time rewards at `betaWelcomeGrants/{uid}`, and entries in `inventoryGrantAudit`. Firestore client rules remain deny-by-default for these paths. `getBetaStatus` only returns the signed-in player's own status.
+Older cards without `releaseAudience` are treated as **Public** by default, with no migration of existing documents required.
 
-## Deploy to Firebase on Windows
+Beta-only release controls are enforced by server functions and Firestore:
+- Unassigned/non-beta players cannot discover them through the official card catalog.
+- Beta cards are excluded from random **Secure Practice** card rewards and cannot be traded by players, even between two testers.
+- Only active beta testers can save decks with beta-only cards, start new practice matches using those cards, or enter PvP using those decks.
+- Owner single-card and 25-card starter-deck grants refuse to issue beta-only cards to non-testers.
+- When tester access is removed, previously issued copies stay owned, but they no longer appear as accessible collection cards or qualify for new matches until access is restored.
+- Players cannot assign themselves to beta status, invent rewards or bypass inventory limits.
 
-The static website deploys automatically through GitHub Pages, but Cloud Functions must be deployed manually.
+**Important:** These are account-level *game access restrictions*, not copy protection. A player could share a screenshot or a download URL for artwork already visible to them. The game does not provide DRM for illustrated cards.
+
+## Firebase deployment after a GitHub update
+
+The GitHub Pages frontend deploys automatically. Firebase backend changes **do not** deploy from the Pages workflow. Do not publish Beta Only cards until the listed backend rules and Functions have finished deployment.
+
+In Windows PowerShell:
 
 ```powershell
 cd "C:\Users\Owner\Documents\fare-mayhem"
@@ -36,23 +44,56 @@ git status --short
 git pull --ff-only origin main
 npm.cmd --prefix functions run test
 firebase.cmd use fare-mayhem
-firebase.cmd deploy --only "functions:getBetaStatus"
-firebase.cmd deploy --only "functions:listBetaTesters"
-firebase.cmd deploy --only "functions:setBetaTester"
+```
+
+Deploy the **authorized card catalog** first to restore official card discovery for the updated website:
+
+```powershell
+firebase.cmd deploy --only "functions:getVisibleCatalog"
+```
+
+Deploy the new/changed beta grants one at a time:
+
+```powershell
 firebase.cmd deploy --only "functions:grantBetaWelcome"
+firebase.cmd deploy --only "functions:grantBetaCards"
+```
+
+Deploy the card release and collection checks:
+
+```powershell
+firebase.cmd deploy --only "functions:saveOfficialCard"
+firebase.cmd deploy --only "functions:publishOfficialCard"
+firebase.cmd deploy --only "functions:getCollectionDashboard"
+firebase.cmd deploy --only "functions:saveCollectionDeck"
+firebase.cmd deploy --only "functions:startPracticeMatch"
+firebase.cmd deploy --only "functions:takePracticeAction"
+firebase.cmd deploy --only "functions:joinPvpQueue"
+firebase.cmd deploy --only "functions:createTradeOffer"
+firebase.cmd deploy --only "functions:respondTradeOffer"
+firebase.cmd deploy --only "functions:grantOfficialCards"
+firebase.cmd deploy --only "functions:grantOfficialDeck"
+```
+
+Deploy the changed Firestore read rules:
+
+```powershell
+firebase.cmd deploy --only "firestore:rules"
 firebase.cmd functions:list
 ```
 
-Because the Firebase project previously encountered `us-central1` Cloud Run CPU quota limits, **run these commands one at a time** and wait for each to complete. The Functions use `cpu: 'gcf_gen1'`, `concurrency: 1`, and small `maxInstances` values. Do not repeatedly retry quota failures; wait for resources to release and check the Cloud Console.
+If the earlier beta management functions weren't deployed, deploy those as well:
 
-No new Firestore rules, Storage rules, OpenAI API, email service, or domain DNS changes are required for this feature.
+```powershell
+firebase.cmd deploy --only "functions:getBetaStatus"
+firebase.cmd deploy --only "functions:listBetaTesters"
+firebase.cmd deploy --only "functions:setBetaTester"
+```
 
-## Validation checklist
+Because the project previously encountered Cloud Run CPU quota errors, run each command separately and wait for **Deploy complete!**. Avoid attempting the entire Functions group while regional CPU remains constrained. Do not redeploy Storage rules for these features.
 
-- A registered player's email can be assigned.
-- An unknown email is rejected, not silently created.
-- A non-owner account cannot list testers, assign beta roles, or trigger gifts.
-- The beta player sees their tester badge and can refresh My Collection after issuance.
-- Cards cannot be awarded twice if the owner clicks again or removes/restores the player's beta access.
-- Only five distinct published standard cards are issued, not drafts or transcendent cards.
-- Disabled beta players keep their earned cards but no longer see active tester status.
+## Test
+
+Assign a fresh registered account as beta, issue one selected public card and one selected beta-only card, verify both in My Collection. Verify that a normal account cannot see the beta card in the public catalog or receive it via grant/trade, and cannot save it in a deck. Try the second curated drop for the first tester, then deactivate them and verify new beta-only deck access is denied. Reactivate to confirm their owned beta cards remain.
+
+The backend tests validate the release audience and legacy compatibility. **Live assignment, permission, and transaction tests must still be performed on the deployed Firebase project.**
