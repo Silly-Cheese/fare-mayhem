@@ -118,14 +118,12 @@ async function grantSelectedCards(operatorUid:string,uid:string,items:Selected[]
   const cardNames:string[]=[]
   await db.runTransaction(async tx=>{
     // All reads happen before any writes. A one-time welcome is atomically idempotent.
-    const [beta,claimed,...docs]=await Promise.all([
-      tx.get(betaRef),
-      ...(once?[tx.get(rewardRef)]:[Promise.resolve(null)]),
-      ...items.flatMap(item=>[
-        tx.get(db.doc(`cards/${item.id}`)),
-        tx.get(db.doc(`playerCollections/${uid}/cards/${item.id}`))
-      ])
-    ])
+    const beta=await tx.get(betaRef)
+    const claimed=once?await tx.get(rewardRef):null
+    const docs=await Promise.all(items.flatMap(item=>[
+      tx.get(db.doc(`cards/${item.id}`)),
+      tx.get(db.doc(`playerCollections/${uid}/cards/${item.id}`))
+    ]))
     if(!beta.exists||beta.get('active')!==true)throw new HttpsError('failed-precondition','This account is not an active beta tester.')
     if(once&&(claimed?.exists||beta.get('welcomeGranted')===true))
       throw new HttpsError('already-exists','This tester already received a one-time welcome grant.')
