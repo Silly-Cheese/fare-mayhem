@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions'
-import { collection, onSnapshot, query, where, type DocumentData } from 'firebase/firestore'
+import { collection, onSnapshot, type DocumentData } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
 import { db, functions, storage } from '../firebase'
 import type { EditableCard, OfficialCard } from './types'
@@ -21,10 +21,14 @@ export function subscribeDrafts(onCards: (cards: OfficialCard[]) => void, onErro
     onCards(snapshot.docs.map(d => normalizeCard(d.id, d.data())).sort((a, b) => a.name.localeCompare(b.name)))
   }, onError)
 }
+const visibleCatalogCall=httpsCallable<Record<string,never>,{cards:OfficialCard[]}>(functions,'getVisibleCatalog')
+/** The server filters beta-only releases based on the authenticated viewer. */
 export function subscribePublished(onCards: (cards: OfficialCard[]) => void, onError: (error: Error) => void) {
-  return onSnapshot(query(collection(db, 'cards'), where('status', '==', 'published')), snapshot => {
-    onCards(snapshot.docs.map(d => normalizeCard(d.id, d.data())).sort((a, b) => a.name.localeCompare(b.name)))
-  }, onError)
+  let active=true
+  void visibleCatalogCall({}).then(result=>{
+    if(active)onCards(result.data.cards.map(c=>({...c,releaseAudience:c.releaseAudience||'public'})).sort((a,b)=>a.name.localeCompare(b.name)))
+  }).catch(error=>{if(active)onError(error instanceof Error?error:Error(String(error)))})
+  return ()=>{active=false}
 }
 export async function uploadArtwork(id: string, file: File, onProgress: (pct: number) => void, kind: 'original' | 'cartoon' | 'finished' = 'original') {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw Error('Upload a PNG, JPG, or WebP image.')
