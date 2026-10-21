@@ -25,3 +25,14 @@ test('Phase 6 rejects driver-only abilities on action cards',()=>{
   assert.throws(()=>validateCard({...sample,kind:'action',effectKey:'defeat_deal_reputation_2'}),/requires a driver/)
   assert.equal(validateCard({...sample,kind:'action',effectKey:'deal_all_enemies_1'}).effectKey,'deal_all_enemies_1')
 })
+
+test('Beta-only release audience is accepted and legacy cards default to public',()=>{
+  assert.equal(validateCard({...sample,releaseAudience:'beta'}).releaseAudience,'beta')
+  assert.equal(validateCard(sample).releaseAudience,'public')
+  assert.throws(()=>validateCard({...sample,releaseAudience:'beta-public'}),/release audience/)
+})
+test('Existing public cards stay public when a draft has no release audience',()=>{
+  const legacy=validateCard({...sample,finishedUrl:'https://example.org/legacy.webp'})
+  assert.equal(legacy.releaseAudience,'public')
+  assert.equal(canPublish(legacy),true)
+})
