@@ -365,6 +365,36 @@ export function chooseDiscard(s:BattleState,side:Side,index:number):BattleState|
   log(next,`${fighterLabel(next,side)} used Third-Eye and discarded ${next.cards[removed]?.name||'a card'}.`)
   return next
 }
+/** The actor alone chooses one of Bronson's three hidden top-deck cards. */
+export function chooseDeckCard(s:BattleState,side:Side,index:number):BattleState|null{
+  const pending=s.pendingChoice
+  if(!pending||pending.kind!=='bronson_choose'||pending.side!==side||s.turn!==side||!Number.isInteger(index))return null
+  const options=pending.options||[]
+  if(index<0||index>=options.length)return null
+  const next=clone(s),p=next[side],count=options.length
+  if(p.deck.slice(0,count).some((id,i)=>id!==options[i]))return null
+  const peeked=p.deck.splice(0,count)
+  const selected=peeked.splice(index,1)[0]
+  p.hand.push(selected)
+  p.deck.push(...peeked)
+  delete next.pendingChoice
+  log(next,`${fighterLabel(next,side)} chose one of Bronson's top ${count} cards.`)
+  return next
+}
+/** The cursed recipient can pay 14 saved Fare to expel Jackson from their hand. */
+export function removeJackson(s:BattleState,side:Side,index:number):BattleState|null{
+  const p=s[side]
+  if(s.turn!==side||s.winner||s.pendingChoice||s.pendingReaction||p.fare<14||!Number.isInteger(index)||index<0||index>=p.hand.length)return null
+  const id=p.hand[index]
+  if(!p.infiltrators?.includes(id)||s.cards[id]?.effect!=='jackson_connell_hand_infiltration')return null
+  const next=clone(s),owner=next[side]
+  owner.fare-=14
+  owner.hand.splice(index,1)
+  owner.infiltrators=(owner.infiltrators||[]).filter(x=>x!==id)
+  delete next.cards[id]
+  log(next,`${fighterLabel(next,side)} paid 14 Fare to banish Jackson Connell from their hand.`)
+  return next
+}
 export function attack(s:BattleState,side:Side,attackerId:string,targetId?:string):BattleState|null{
   if(s.turn!==side||s.winner||s.pendingChoice||s.pendingReaction)return null
   const source=s[side].board.find(u=>u.id===attackerId)
@@ -417,7 +447,12 @@ export function aiTurn(s:BattleState):BattleState{
   // If an AI Action was paused for a human Nope reaction, resolve its target choice
   // before the AI resumes normal play.
   for(let n=0;n<3&&next.pendingChoice?.side==='opponent';n++){
-    if(next.pendingChoice.kind==='third_eye_discard')next=chooseDiscard(next,'opponent',0)??next
+    if(next.pendingChoice.kind==='bronson_choose')next=chooseDeckCard(next,'opponent',0)??next
+    else if(next.pendingChoice.kind==='third_eye_discard'){
+      const i=next.player.hand.findIndex(id=>next.cards[id]?.effect!=='jackson_connell_hand_infiltration')
+      if(i<0)break
+      next=chooseDiscard(next,'opponent',i)??next
+    }
     else{
       const choices=eligibleActionTargets(next,'opponent',next.pendingChoice.effect!,next.pendingChoice.first)
       if(!choices.length)break
@@ -441,6 +476,8 @@ export function aiTurn(s:BattleState):BattleState{
       if(outcome)next=outcome
     }
   }
+  const intruder=next.opponent.hand.findIndex(id=>next.opponent.infiltrators?.includes(id))
+  if(intruder>=0&&next.opponent.fare>=14)next=removeJackson(next,'opponent',intruder)??next
   attackReady()
   if(next.winner)return next
   for(let i=0;i<12;i++){
@@ -464,7 +501,12 @@ export function aiTurn(s:BattleState):BattleState{
     next=played
     if(next.pendingReaction)return next // Human player must decide whether to use Nope!
     for(let n=0;n<3&&next.pendingChoice;n++){
-      if(next.pendingChoice.kind==='third_eye_discard')next=chooseDiscard(next,'opponent',0)??next
+      if(next.pendingChoice.kind==='bronson_choose')next=chooseDeckCard(next,'opponent',0)??next
+      else if(next.pendingChoice.kind==='third_eye_discard'){
+        const i=next.player.hand.findIndex(id=>next.cards[id]?.effect!=='jackson_connell_hand_infiltration')
+        if(i<0)break
+        next=chooseDiscard(next,'opponent',i)??next
+      }
       else{
         const choices=eligibleActionTargets(next,'opponent',next.pendingChoice.effect!,next.pendingChoice.first)
         if(!choices.length)break
@@ -489,7 +531,9 @@ export function applyCommand(s:BattleState,command:Command):BattleState|null{
   }
   if(s.turn!=='player')return null
   let next:BattleState|null=null
-  if(command.type==='choose_discard')next=chooseDiscard(s,'player',command.index)
+  if(command.type==='choose_deck_card')next=chooseDeckCard(s,'player',command.index)
+  else if(command.type==='remove_jackson')next=removeJackson(s,'player',command.index)
+  else if(command.type==='choose_discard')next=chooseDiscard(s,'player',command.index)
   else if(command.type==='choose_target')next=chooseTarget(s,'player',command.targetSide,command.unitId)
   else if(command.type==='play')next=play(s,'player',command.index)
   else if(command.type==='attack')next=attack(s,'player',command.attackerId,command.targetId)
@@ -505,7 +549,11 @@ export function officialBattleCard(id:string,card:Record<string,unknown>):Battle
   if(!EFFECTS.includes(effectKey as Effect))return null
   if(card.kind==='driver'&&ACTION_ONLY_EFFECTS.includes(String(effectKey)))return null
   const cost=Number(card.cost),attack=Number(card.attack),health=Number(card.health)
-  if(!Number.isInteger(cost)||cost<0||cost>10||!Number.isInteger(attack)||attack<0||attack>30||!Number.isInteger(health)||health<1||health>50)return null
+  const jackson=effectKey==='jackson_connell_hand_infiltration'
+  const coach=effectKey==='coach_messi_infinite_wlp_dominion'
+  const exceptional=(jackson&&attack===0&&health===0)||(coach&&cost===0&&attack===99&&health===999)
+  if(!Number.isInteger(cost)||cost<0||cost>10||!Number.isInteger(attack)||!Number.isInteger(health)||(!exceptional&&(attack<0||attack>30||health<1||health>50)))return null
+  if((jackson||coach)&&String(card.releaseAudience)!=='beta')return null
   const name=typeof card.name==='string'?card.name.slice(0,70):'Unknown driver'
   return {id,name,nickname:typeof card.nickname==='string'?card.nickname.slice(0,70):'',kind:card.kind as 'driver'|'action',cost,attack,health,effect:effectKey as Effect,imageUrl:typeof card.finishedUrl==='string'&&card.finishedUrl?card.finishedUrl:typeof card.cartoonUrl==='string'&&card.cartoonUrl?card.cartoonUrl:typeof card.originalUrl==='string'?card.originalUrl:'',fullCard:typeof card.finishedUrl==='string'&&!!card.finishedUrl,rating:card.rarity==='transcendent'?String(card.transcendentLabel||'???'):'★'.repeat(Math.max(1,Math.min(5,Number(card.stars)||1))),source:'official'}
 }
