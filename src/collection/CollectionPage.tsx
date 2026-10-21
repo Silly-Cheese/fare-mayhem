@@ -25,7 +25,7 @@ export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onR
   function pickSlot(n:number){setSlot(n);const saved=data?.decks.find(x=>x.slot===n);setIds(saved?.ids||[]);setName(saved?.name||`Dispatch Deck ${n}`)}
   function qty(id:string){return data?.inventory.find(x=>x.id===id)?.quantity||0}
   const owned=data?.cards.filter(c=>qty(c.id)>0)||[]
-  const total=data?.inventory.reduce((n,item)=>n+item.quantity,0)||0
+  const total=owned.reduce((sum,card)=>sum+qty(card.id),0)
   const counts=new Map<string,number>()
   ids.forEach(id=>counts.set(id,(counts.get(id)||0)+1))
   function add(id:string){const copies=counts.get(id)||0;if(ids.length>=25||copies>=Math.min(3,qty(id)))return;setIds([...ids,id]);setNotice('')}
