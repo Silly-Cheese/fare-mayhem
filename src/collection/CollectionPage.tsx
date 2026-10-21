@@ -10,14 +10,18 @@ import './collection.css'
 type Card={id:string;name:string;nickname:string;rarity:string;stars:number;kind:string;imageUrl:string}
 type Deck={slot:number;name:string;ids:string[]}
 type Collection={cards:Card[];inventory:{id:string;quantity:number}[];decks:Deck[]}
+type BetaInfo={active:boolean;assignedAtMs?:number;welcomeGranted:boolean;welcomeCardCount:number}
 const loadCollection=httpsCallable<Record<string,never>,Collection>(functions,'getCollectionDashboard')
+const loadBetaStatus=httpsCallable<Record<string,never>,BetaInfo>(functions,'getBetaStatus')
 const saveDeck=httpsCallable<{slot:number;name:string;ids:string[]},{saved:boolean}>(functions,'saveCollectionDeck')
 export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onRequireSignIn:()=>void;onPlay:(slot:number)=>void}){
   const [data,setData]=useState<Collection|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('')
+  const [beta,setBeta]=useState<BetaInfo|null>(null)
   const [busy,setBusy]=useState(false),[slot,setSlot]=useState(1),[name,setName]=useState('My first dispatch'),[ids,setIds]=useState<string[]>([])
   const [tab,setTab]=useState<'collection'|'decks'|'trades'>('collection')
-  async function refresh(){if(!user)return;setBusy(true);setError('');try{const value=(await loadCollection({})).data;setData(value)}catch(e){setError(backendError(e,'My Collection'))}finally{setBusy(false)}}
-  useEffect(()=>{setData(null);setIds([]);if(user)void refresh()},[user?.uid])
+  async function refresh(){if(!user)return;setBusy(true);setError('');try{const value=(await loadCollection({})).data;setData(value)}catch(e){setError(backendError(e,'My Collection'))}finally{setBusy(false)}
+    try{setBeta((await loadBetaStatus({})).data)}catch{/* Badge availability should never prevent loading a collection. */}}
+  useEffect(()=>{setData(null);setBeta(null);setIds([]);if(user)void refresh()},[user?.uid])
   function pickSlot(n:number){setSlot(n);const saved=data?.decks.find(x=>x.slot===n);setIds(saved?.ids||[]);setName(saved?.name||`Dispatch Deck ${n}`)}
   function qty(id:string){return data?.inventory.find(x=>x.id===id)?.quantity||0}
   const owned=data?.cards.filter(c=>qty(c.id)>0)||[]
@@ -29,7 +33,8 @@ export function CollectionPage({user,onRequireSignIn,onPlay}:{user:User|null;onR
   async function save(){if(ids.length!==25)return;setBusy(true);setError('');setNotice('');try{await saveDeck({slot,name,ids});setNotice(`Deck ${slot} saved. You can use it in Secure Practice.`);await refresh()}catch(e){setError(backendError(e,'My Collection'))}finally{setBusy(false)}}
   if(!user)return <div className="page-content collection-page"><h1>My Collection</h1><p>Sign in to store the cards you earn and assemble official decks.</p><button className="button primary" onClick={onRequireSignIn}>Sign in <ArrowRight size={16}/></button></div>
   return <div className="page-content collection-page page-enter">
-    <div className="collection-heading"><div><span className="eyebrow"><ShieldCheck size={15}/> PHASE 04 · VERIFIED OWNERSHIP</span><h1>My Collection<span className="punctuation">.</span></h1><p>Only cards awarded by the trusted game server or received through a verified trade belong to you. Published cards alone don't give you ownership.</p></div><button className="button outline" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={17}/> Refresh</button></div>
+    <div className="collection-heading"><div><span className="eyebrow"><ShieldCheck size={15}/> PHASE 04 · VERIFIED OWNERSHIP</span><h1>My Collection<span className="punctuation">.</span></h1>{beta?.active&&<div className="collection-beta-identity"><ShieldCheck size={16}/> VERIFIED BETA TESTER</div>}<p>Only cards awarded by the trusted game server or received through a verified trade belong to you. Published cards alone don't give you ownership.</p></div><button className="button outline" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={17}/> Refresh</button></div>
+    {beta?.active&&<div className="collection-beta-status"><ShieldCheck size={22}/><div><strong>You're part of the Fare Mayhem Beta Test Crew.</strong><p>{beta.welcomeGranted?`${beta.welcomeCardCount} free official welcome cards have been delivered to your collection.`:'Your account has beta access. The owner can issue your one-time five-card welcome pack once enough cards are published.'}</p></div></div>}
     <div className="collection-summary"><div><b>{total}</b><span>Owned card copies</span></div><div><b>{owned.length}</b><span>Different cards</span></div><div><b>{data?.decks.length||0}/3</b><span>Saved decks</span></div></div>
     <div className="collection-switch"><button className={tab==='collection'?'active':''} onClick={()=>setTab('collection')}><Layers3 size={17}/> Owned cards</button><button className={tab==='decks'?'active':''} onClick={()=>setTab('decks')}><Star size={17}/> Deck builder</button><button className={tab==='trades'?'active':''} onClick={()=>setTab('trades')}><Layers3 size={17}/> Trading</button></div>
     {error&&<p className="studio-warning" role="alert">{error}</p>}
