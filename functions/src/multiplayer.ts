@@ -20,6 +20,7 @@ async function verifiedDeck(tx:Transaction,uid:string,slot:number):Promise<DeckD
   const saved=await tx.get(db().doc(`playerDecks/${uid}/slots/slot-${slot}`))
   const ids=saved.get('ids') as unknown
   if(!Array.isArray(ids)||ids.length!==25||ids.some(x=>!idOk(x)))throw new HttpsError('failed-precondition','Save a complete 25-card deck in My Collection before matchmaking.')
+  const beta=await tx.get(db().doc(`betaTesters/${uid}`))
   const counts=new Map<string,number>()
   for(const id of ids){counts.set(id,(counts.get(id)||0)+1);if(counts.get(id)!>3)throw new HttpsError('failed-precondition','Your deck contains too many copies of one card.')}
   const snapshots=await Promise.all([...counts.entries()].map(async([id,qty])=>{
@@ -27,6 +28,7 @@ async function verifiedDeck(tx:Transaction,uid:string,slot:number):Promise<DeckD
       tx.get(db().doc(`playerCollections/${uid}/cards/${id}`)),
       tx.get(db().doc(`cards/${id}`))
     ])
+    if(card.get('releaseAudience')==='beta'&&beta.get('active')!==true)throw new HttpsError('permission-denied','Beta-only cards require active tester status.')
     if(card.get('effectKey')==='divine_judgment_resurrection'&&qty!==1)throw new HttpsError('failed-precondition','Only one God card per PvP deck.')
     if(!card.exists||card.get('status')!=='published'||Number(owned.get('quantity')||0)<qty)throw new HttpsError('failed-precondition','A saved deck contains cards you no longer own or which have been unpublished.')
     const definition=officialBattleCard(id,card.data()!)
