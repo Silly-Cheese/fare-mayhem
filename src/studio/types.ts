@@ -72,9 +72,13 @@ export const battleEffectOptions = [
   {value:"steal_spotlight_steal_1_fare",category:"Action cards",label:"Steal the Spotlight",help:"Steal 1 Fare from another Driver."},
   {value:"total_chaos_cycle_1_all",category:"Action cards",label:"Total Chaos",help:"Everyone discards 1 card, then draws 1."},
   {value:"extra_turn_extra_action",category:"Action cards",label:"Extra Turn",help:"Take another Action immediately."},
+  {value:"jackson_connell_hand_infiltration",category:"Beta Drivers",label:"Jackson Connell · hand curse",help:"Infiltrate opponent's hand, drain 2 Reputation each turn; removal costs 14 Fare."},
+  {value:"coach_messi_infinite_wlp_dominion",category:"Beta Drivers",label:"Coach Messi · ∞ dominion",help:"Infinite rarity; banish enemies, heal, draw 10, gain 20 Fare; immune to damage/destruction and drain 5 Reputation per turn."},
+  {value:"fighter_jet_supersonic_strike",category:"Beta Drivers",label:"Fighter Jet · supersonic strike",help:"Deal 2 damage to opposing Driver and gain 1 Fare on arrival."},
+  {value:"bronson_act_brainstorm",category:"Beta Drivers",label:"Bronson · ACT brainstorm",help:"Choose from top 3 deck cards, move one to hand, return others to deck bottom, lose 1 Reputation."},
 ] as const
 export type BattleEffect = (typeof battleEffectOptions)[number]['value']
-export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start','Original characters','Action cards'] as const
+export const battleEffectCategories = ['Basic','Discount','Arrival','On attack','On defeat','Turn start','Original characters','Action cards','Beta Drivers'] as const
 export type CardKind = 'driver' | 'action'
 export type CardStatus = 'draft' | 'published' | 'retired'
 export type OfficialCard = {
