@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import { getFirestore, type Transaction } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { createBattle, play, attack, endTurn, chooseDiscard, chooseTarget, respondToAction, officialBattleCard, type BattleState, type BattleCard, type Side } from './battle'
+import { createBattle, play, attack, endTurn, chooseDiscard, chooseTarget, chooseDeckCard, removeJackson, respondToAction, officialBattleCard, type BattleState, type BattleCard, type Side } from './battle'
 
 const db=()=>getFirestore()
 const region='us-central1'
@@ -29,6 +29,7 @@ async function verifiedDeck(tx:Transaction,uid:string,slot:number):Promise<DeckD
       tx.get(db().doc(`cards/${id}`))
     ])
     if(card.get('releaseAudience')==='beta'&&beta.get('active')!==true)throw new HttpsError('permission-denied','Beta-only cards require active tester status.')
+    if(card.get('effectKey')==='coach_messi_infinite_wlp_dominion'&&qty!==1)throw new HttpsError('failed-precondition','Only one Coach Messi per PvP deck.')
     if(card.get('effectKey')==='divine_judgment_resurrection'&&qty!==1)throw new HttpsError('failed-precondition','Only one God card per PvP deck.')
     if(!card.exists||card.get('status')!=='published'||Number(owned.get('quantity')||0)<qty)throw new HttpsError('failed-precondition','A saved deck contains cards you no longer own or which have been unpublished.')
     const definition=officialBattleCard(id,card.data()!)
@@ -166,7 +167,7 @@ export const getPvpStatus=onCall({region,invoker:'public',cpu:'gcf_gen1',concurr
 export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:12,timeoutSeconds:35,enforceAppCheck:false},async request=>{
   const uid=uidOf(request.auth),id=request.data?.matchId,action=request.data?.action,version=request.data?.version
   if(!idOk(id))throw new HttpsError('invalid-argument','Invalid match.')
-  if(!action||typeof action!=='object'||!['play','attack','end','forfeit','choose_discard','choose_target','react'].includes(action.type))throw new HttpsError('invalid-argument','Invalid match action.')
+  if(!action||typeof action!=='object'||!['play','attack','end','forfeit','choose_discard','choose_target','choose_deck_card','remove_jackson','react'].includes(action.type))throw new HttpsError('invalid-argument','Invalid match action.')
   if(!Number.isInteger(version)||version<1)throw new HttpsError('invalid-argument','Invalid match revision.')
   const ref=matchRef(id)
   await db().runTransaction(async tx=>{
@@ -188,13 +189,15 @@ export const takePvpAction=onCall({region,invoker:'public',cpu:'gcf_gen1',concur
         if(action.type!=='react'||current.pendingReaction.responder!==side)throw new HttpsError('failed-precondition','Wait for the pending Action reaction.')
       }else{
         if(current.turn!==side)throw new HttpsError('failed-precondition','Wait for your opponent’s turn.')
-        if(current.pendingChoice&&!(action.type==='choose_discard'||action.type==='choose_target'))throw new HttpsError('failed-precondition','Resolve the current card choice first.')
+        if(current.pendingChoice&&!(action.type==='choose_discard'||action.type==='choose_target'||action.type==='choose_deck_card'))throw new HttpsError('failed-precondition','Resolve the current card choice first.')
       }
-      if(action.type==='react'&&typeof action.useNope==='boolean'&&(!action.useNope||(Number.isInteger(action.index)&&action.index>=0&&action.index<8)))next=respondToAction(current,side,action.useNope,action.index)
+      if(action.type==='react'&&typeof action.useNope==='boolean'&&(!action.useNope||(Number.isInteger(action.index)&&action.index>=0&&action.index<20)))next=respondToAction(current,side,action.useNope,action.index)
       else if(action.type==='choose_target'&&typeof action.unitId==='string'&&/^unit-\d{1,7}$/.test(action.unitId)&&(action.targetSide==='player'||action.targetSide==='opponent'))next=chooseTarget(current,side,action.targetSide,action.unitId)
-      else if(action.type==='choose_discard'&&Number.isInteger(action.index)&&action.index>=0&&action.index<8)next=chooseDiscard(current,side,action.index)
+      else if(action.type==='remove_jackson'&&Number.isInteger(action.index)&&action.index>=0&&action.index<20)next=removeJackson(current,side,action.index)
+      else if(action.type==='choose_deck_card'&&Number.isInteger(action.index)&&action.index>=0&&action.index<3)next=chooseDeckCard(current,side,action.index)
+      else if(action.type==='choose_discard'&&Number.isInteger(action.index)&&action.index>=0&&action.index<20)next=chooseDiscard(current,side,action.index)
       else if(action.type==='end')next=endTurn(current)
-      else if(action.type==='play'&&Number.isInteger(action.index)&&action.index>=0&&action.index<8)next=play(current,side,action.index)
+      else if(action.type==='play'&&Number.isInteger(action.index)&&action.index>=0&&action.index<20)next=play(current,side,action.index)
       else if(action.type==='attack'&&typeof action.attackerId==='string'&&/^unit-\d{1,7}$/.test(action.attackerId)
         &&(action.targetId===undefined||(typeof action.targetId==='string'&&/^unit-\d{1,7}$/.test(action.targetId))))
         next=attack(current,side,action.attackerId,action.targetId)
