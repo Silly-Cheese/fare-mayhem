@@ -68,3 +68,24 @@
 .beta-confirm p{color:#d6c6ac;font-size:13px;line-height:1.6}
 @media(max-width:730px){.beta-panel{padding:14px}.beta-tester{flex-direction:column;align-items:stretch}.beta-tester-actions>.button{flex:1;justify-content:center}}
 @media(max-width:480px){.beta-metrics{gap:6px}.beta-metrics>div{padding:10px 8px}.beta-metrics strong{font-size:22px}.beta-metrics span{font-size:10px}.beta-assign .button{width:100%}}
+
+/* Curated Beta Tester gifts: responsive exact card picker */
+.beta-gift-builder{background:#18292d;border:1px solid #7a6844;border-radius:15px;padding:17px;margin-top:17px}
+.beta-gift-builder h3{color:#f7d89c;font-size:19px;margin:10px 0}
+.beta-gift-builder p{color:#aebfbc;font-size:12px;line-height:1.6}
+.beta-gift-search{display:flex;flex-direction:column;gap:7px;color:#d5dcd7;font-size:12px;margin-bottom:12px}
+.beta-gift-search input{background:#213338;border:1px solid #556765;border-radius:10px;color:white;padding:11px}
+.beta-gift-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;max-height:460px;overflow:auto}
+.beta-gift-card{padding:10px;background:#203138;border:1px solid #415a5e;border-radius:11px;display:flex;flex-direction:column;justify-content:space-between;gap:12px}
+.beta-gift-card-title{display:flex;align-items:flex-start;gap:9px}
+.beta-gift-card-title img{width:48px;height:68px;object-fit:contain;border-radius:6px;flex:0 0 auto}
+.beta-gift-card-title span{min-width:0;display:flex;flex-direction:column;gap:4px}
+.beta-gift-card-title b{font-size:12px;overflow-wrap:anywhere;color:#f6e9d1}
+.beta-gift-card-title small{color:#afc0bf;font-size:10px}
+.beta-gift-card-title .beta-tag{font-size:9px}
+.beta-gift-card>span{display:flex;justify-content:space-between;align-items:center;gap:9px;color:#acbdbc;font-size:11px}
+.beta-gift-card input{width:70px;background:#30434a;color:#fff;border:1px solid #617779;border-radius:8px;padding:7px}
+.beta-gift-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:13px;margin-top:16px}
+.beta-gift-footer strong{color:#f7d39b;font-size:13px}
+@media(max-width:540px){.beta-gift-builder{padding:12px}.beta-gift-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-height:unset}.beta-gift-footer>.beta-tester-actions{width:100%}}
+@media(max-width:390px){.beta-gift-grid{grid-template-columns:1fr}}
