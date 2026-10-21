@@ -1,6 +1,7 @@
 import { EFFECTS, ACTION_ONLY_EFFECTS, type Effect } from './battle'
+export type ReleaseAudience = 'public' | 'beta'
 export type Rarity = 'standard' | 'transcendent'
-export type SafeCard = {name:string;nickname:string;kind:'driver'|'action';rarity:Rarity;stars:number;transcendentLabel:string;cost:number;attack:number;health:number;ability:string;flavor:string;customerReview:string;edition:string;effectKey:Effect;originalUrl:string;originalStoragePath:string;cartoonUrl:string;cartoonStoragePath:string;finishedUrl:string;finishedStoragePath:string}
+export type SafeCard = {releaseAudience:ReleaseAudience;name:string;nickname:string;kind:'driver'|'action';rarity:Rarity;stars:number;transcendentLabel:string;cost:number;attack:number;health:number;ability:string;flavor:string;customerReview:string;edition:string;effectKey:Effect;originalUrl:string;originalStoragePath:string;cartoonUrl:string;cartoonStoragePath:string;finishedUrl:string;finishedStoragePath:string}
 function field(input: Record<string, unknown>, key: string, limit: number, required = false) {
   const value = input[key]
   if (typeof value !== 'string' || value.length > limit || (required && !value.trim())) throw Error(`Invalid ${key}.`)
@@ -14,6 +15,8 @@ function numberField(input: Record<string, unknown>, key: string, min: number, m
 export function validateCard(data: unknown): SafeCard {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw Error('Invalid card.')
   const v = data as Record<string, unknown>
+  const audience=v.releaseAudience??'public'
+  if(audience!=='public'&&audience!=='beta')throw Error('Choose a valid card release audience.')
   const kind = v.kind
   const rarity = v.rarity
   if (kind !== 'driver' && kind !== 'action') throw Error('Invalid card type.')
@@ -27,7 +30,7 @@ export function validateCard(data: unknown): SafeCard {
   if (kind === 'driver' && ACTION_ONLY_EFFECTS.includes(effectKey)) throw Error('That special ability requires an action card.')
   if (!['???','∞','UNRATED','☀','★6','★10'].includes(transcendentLabel)) throw Error('Invalid special rating.')
   return {
-    name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
+    releaseAudience:audience,name: field(v,'name',70,true),nickname:field(v,'nickname',70),kind,rarity,stars,transcendentLabel,
     cost:numberField(v,'cost',0,10),attack:numberField(v,'attack',0,30),health:numberField(v,'health',1,50),
     ability:field(v,'ability',360),flavor:field(v,'flavor',600),customerReview:field(v,'customerReview',350),
     edition:field(v,'edition',60,true),effectKey,originalUrl:field(v,'originalUrl',2000),originalStoragePath:field(v,'originalStoragePath',300),
