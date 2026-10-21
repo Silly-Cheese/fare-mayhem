@@ -1,4 +1,3 @@
-import { randomInt } from 'node:crypto'
 import { getAuth } from 'firebase-admin/auth'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -81,65 +80,97 @@ export const setBetaTester=onCall(betaConfig,async request=>{
   return{uid:player.uid,active}
 })
 
-/**
- * Issue exactly five unique published standard cards once per tester.
- * This is an owner-triggered gift, not a player claim or an unrestricted admin grant.
- * The immutable claim and all inventory increments commit in the same transaction.
- */
+/** One read-only catalog entry point prevents beta-only cards leaking to guests. */
+export const getVisibleCatalog=onCall({...betaConfig,maxInstances:8},async request=>{
+  let maySeeBeta=false
+  const uid=request.auth?.uid
+  if(uid){
+    const [beta,owner]=await Promise.all([
+      db.doc(`betaTesters/${uid}`).get(),
+      request.auth?.token.fmOwner===true?db.doc('_system/owner').get():Promise.resolve(null)
+    ])
+    maySeeBeta=beta.get('active')===true||(owner?.get('uid')===uid)
+  }
+  const published=await db.collection('cards').where('status','==','published').limit(250).get()
+  return{cards:published.docs.filter(x=>x.get('releaseAudience')!=='beta'||maySeeBeta).map(x=>({...x.data(),id:x.id}))}
+})
+
+type Selected={id:string;qty:number}
+function selectedCards(value:unknown):Selected[]{
+  if(!Array.isArray(value)||!value.length||value.length>25)throw new HttpsError('invalid-argument','Choose 1–25 different cards.')
+  const seen=new Set<string>()
+  let total=0
+  const items=value.map((entry:unknown)=>{
+    if(!entry||typeof entry!=='object')throw new HttpsError('invalid-argument','Invalid selected card.')
+    const item=entry as Record<string,unknown>
+    if(typeof item.id!=='string'||!/^[A-Za-z0-9_-]{10,80}$/.test(item.id)||!Number.isInteger(item.qty)||Number(item.qty)<1||Number(item.qty)>25||seen.has(item.id))
+      throw new HttpsError('invalid-argument','Choose unique cards, with 1–25 copies each.')
+    seen.add(item.id);total+=Number(item.qty)
+    return{id:item.id,qty:Number(item.qty)}
+  })
+  if(total>25)throw new HttpsError('invalid-argument','Issue no more than 25 card copies in one grant.')
+  return items
+}
+async function grantSelectedCards(operatorUid:string,uid:string,items:Selected[],once:boolean){
+  const betaRef=db.doc(`betaTesters/${uid}`)
+  const rewardRef=db.doc(`betaWelcomeGrants/${uid}`)
+  const auditRef=db.collection('inventoryGrantAudit').doc()
+  const cardNames:string[]=[]
+  await db.runTransaction(async tx=>{
+    // All reads happen before any writes. A one-time welcome is atomically idempotent.
+    const [beta,claimed,...docs]=await Promise.all([
+      tx.get(betaRef),
+      ...(once?[tx.get(rewardRef)]:[Promise.resolve(null)]),
+      ...items.flatMap(item=>[
+        tx.get(db.doc(`cards/${item.id}`)),
+        tx.get(db.doc(`playerCollections/${uid}/cards/${item.id}`))
+      ])
+    ])
+    if(!beta.exists||beta.get('active')!==true)throw new HttpsError('failed-precondition','This account is not an active beta tester.')
+    if(once&&(claimed?.exists||beta.get('welcomeGranted')===true))
+      throw new HttpsError('already-exists','This tester already received a one-time welcome grant.')
+    for(let i=0;i<items.length;i++){
+      const card=docs[i*2],owned=docs[i*2+1]
+      if(!card.exists||card.get('status')!=='published')
+        throw new HttpsError('failed-precondition','Only published cards can be issued.')
+      if(Number(owned.get('quantity')||0)+items[i].qty>999)
+        throw new HttpsError('failed-precondition','This player has reached a card inventory limit.')
+      cardNames.push(String(card.get('name')||'Official card'))
+    }
+    for(let i=0;i<items.length;i++){
+      const item=items[i],owned=docs[i*2+1]
+      tx.set(db.doc(`playerCollections/${uid}/cards/${item.id}`),{
+        quantity:Number(owned.get('quantity')||0)+item.qty,updatedAt:FieldValue.serverTimestamp()
+      },{merge:true})
+      tx.set(db.doc(`issuedCardRegistry/${item.id}`),{
+        everIssued:true,lastIssuedAt:FieldValue.serverTimestamp()
+      },{merge:true})
+    }
+    const quantity=items.reduce((sum,item)=>sum+item.qty,0)
+    if(once){
+      tx.create(rewardRef,{uid,cards:items,quantity,operatorUid,createdAt:FieldValue.serverTimestamp()})
+      tx.update(betaRef,{welcomeGranted:true,welcomeCardCount:quantity,updatedAtMs:Date.now()})
+    }
+    tx.create(auditRef,{action:once?'beta-welcome':'beta-exclusive-drop',operatorUid,recipientUid:uid,
+      cards:items,quantity,createdAt:FieldValue.serverTimestamp()})
+  })
+  return{granted:true,quantity:items.reduce((sum,item)=>sum+item.qty,0),cardNames}
+}
+
+/** Curated first reward, once per account. Cards may include beta-only releases. */
 export const grantBetaWelcome=onCall({...betaConfig,timeoutSeconds:60,maxInstances:2},async request=>{
   const operatorUid=await ownerUid(request.auth)
   const uid=request.data?.uid
   if(typeof uid!=='string'||!/^[A-Za-z0-9_-]{10,128}$/.test(uid))
-    throw new HttpsError('invalid-argument','Select an existing tester from the roster.')
-  const eligible=await db.collection('cards').where('status','==','published').limit(250).get()
-  const choices=eligible.docs.filter(c=>c.get('rarity')==='standard')
-  if(choices.length<5)throw new HttpsError('failed-precondition','Publish at least five different standard cards before giving a beta welcome pack.')
-  // Secure shuffle without depending on a user's browser or client-provided card IDs.
-  for(let i=choices.length-1;i>0;i--){
-    const j=randomInt(i+1)
-    const temp=choices[i];choices[i]=choices[j];choices[j]=temp
-  }
-  const selected=choices.slice(0,5)
-  const betaRef=db.doc(`betaTesters/${uid}`)
-  const rewardRef=db.doc(`betaWelcomeGrants/${uid}`)
-  const auditRef=db.collection('inventoryGrantAudit').doc()
-  await db.runTransaction(async tx=>{
-    const [beta,claimed,...snapshots]=await Promise.all([
-      tx.get(betaRef),
-      tx.get(rewardRef),
-      ...selected.flatMap(c=>[
-        tx.get(db.doc(`cards/${c.id}`)),
-        tx.get(db.doc(`playerCollections/${uid}/cards/${c.id}`))
-      ])
-    ])
-    if(!beta.exists||beta.get('active')!==true)
-      throw new HttpsError('failed-precondition','Only an active tester can receive a welcome pack.')
-    if(claimed.exists||beta.get('welcomeGranted')===true)
-      throw new HttpsError('already-exists','This tester already received their one-time welcome pack.')
-    for(let i=0;i<selected.length;i++){
-      const published=snapshots[i*2],inventory=snapshots[i*2+1]
-      if(!published.exists||published.get('status')!=='published'||published.get('rarity')!=='standard')
-        throw new HttpsError('aborted','One of the selected cards was changed. Retry the gift.')
-      if(Number(inventory.get('quantity')||0)>=999)
-        throw new HttpsError('failed-precondition','One of the card inventory limits was reached.')
-    }
-    for(let i=0;i<selected.length;i++){
-      const id=selected[i].id,inventory=snapshots[i*2+1]
-      tx.set(db.doc(`playerCollections/${uid}/cards/${id}`),{
-        quantity:Number(inventory.get('quantity')||0)+1,updatedAt:FieldValue.serverTimestamp()
-      },{merge:true})
-      tx.set(db.doc(`issuedCardRegistry/${id}`),{
-        everIssued:true,lastIssuedAt:FieldValue.serverTimestamp()
-      },{merge:true})
-    }
-    const cards=selected.map(c=>c.id)
-    tx.create(rewardRef,{
-      uid,cards,quantity:cards.length,operatorUid,claimedAtMs:Date.now(),createdAt:FieldValue.serverTimestamp()
-    })
-    tx.update(betaRef,{welcomeGranted:true,welcomeCardCount:cards.length,updatedAtMs:Date.now()})
-    tx.create(auditRef,{
-      action:'beta-welcome',operatorUid,recipientUid:uid,cards,quantity:cards.length,createdAt:FieldValue.serverTimestamp()
-    })
-  })
-  return{granted:true,quantity:5,cardNames:selected.map(c=>String(c.get('name')||'Official card'))}
+    throw new HttpsError('invalid-argument','Select a tester from the roster.')
+  return grantSelectedCards(operatorUid,uid,selectedCards(request.data?.cards),true)
+})
+
+/** Owner-controlled additional drops as new beta-only cards are published. */
+export const grantBetaCards=onCall({...betaConfig,timeoutSeconds:60,maxInstances:2},async request=>{
+  const operatorUid=await ownerUid(request.auth)
+  const uid=request.data?.uid
+  if(typeof uid!=='string'||!/^[A-Za-z0-9_-]{10,128}$/.test(uid))
+    throw new HttpsError('invalid-argument','Select an existing beta tester.')
+  return grantSelectedCards(operatorUid,uid,selectedCards(request.data?.cards),false)
 })
