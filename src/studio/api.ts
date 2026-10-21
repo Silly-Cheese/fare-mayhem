@@ -1,7 +1,8 @@
+import { onAuthStateChanged } from 'firebase/auth'
 import { httpsCallable } from 'firebase/functions'
 import { collection, onSnapshot, type DocumentData } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, functions, storage } from '../firebase'
+import { auth, db, functions, storage } from '../firebase'
 import type { EditableCard, OfficialCard } from './types'
 
 const callSave = httpsCallable<{ id?: string; card: EditableCard }, { id: string }>(functions, 'saveOfficialCard')
@@ -25,10 +26,14 @@ const visibleCatalogCall=httpsCallable<Record<string,never>,{cards:OfficialCard[
 /** The server filters beta-only releases based on the authenticated viewer. */
 export function subscribePublished(onCards: (cards: OfficialCard[]) => void, onError: (error: Error) => void) {
   let active=true
-  void visibleCatalogCall({}).then(result=>{
-    if(active)onCards(result.data.cards.map(c=>({...c,releaseAudience:c.releaseAudience||'public'})).sort((a,b)=>a.name.localeCompare(b.name)))
-  }).catch(error=>{if(active)onError(error instanceof Error?error:Error(String(error)))})
-  return ()=>{active=false}
+  let revision=0
+  const unsubscribe=onAuthStateChanged(auth,()=>{
+    const request=++revision
+    void visibleCatalogCall({}).then(result=>{
+      if(active&&request===revision)onCards(result.data.cards.map(c=>({...c,releaseAudience:c.releaseAudience||'public'})).sort((a,b)=>a.name.localeCompare(b.name)))
+    }).catch(error=>{if(active&&request===revision)onError(error instanceof Error?error:Error(String(error)))})
+  })
+  return ()=>{active=false;revision++;unsubscribe()}
 }
 export async function uploadArtwork(id: string, file: File, onProgress: (pct: number) => void, kind: 'original' | 'cartoon' | 'finished' = 'original') {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw Error('Upload a PNG, JPG, or WebP image.')
