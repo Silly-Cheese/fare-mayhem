@@ -33,7 +33,7 @@ export const createTradeOffer=onCall({region,invoker:'public',cpu:'gcf_gen1',con
   const id=randomUUID()
   await db().runTransaction(async tx=>{
     const all=new Set([...offered,...requested].map(x=>x.id))
-    for(const cardId of all){const card=await tx.get(db().doc(`cards/${cardId}`));if(!card.exists||card.get('status')!=='published')throw new HttpsError('failed-precondition','Trades require published official cards.')}
+    for(const cardId of all){const card=await tx.get(db().doc(`cards/${cardId}`));if(!card.exists||card.get('status')!=='published'||card.get('releaseAudience')==='beta')throw new HttpsError('failed-precondition','Beta-only cards cannot be traded.')}
     for(const c of offered){const owned=await tx.get(db().doc(`playerCollections/${senderUid}/cards/${c.id}`));if(Number(owned.get('quantity')||0)<c.qty)throw new HttpsError('failed-precondition','Not enough copies of your offered cards.')}
     const now=Date.now()
     tx.create(db().doc(`cardTrades/${id}`),{senderUid,recipientUid,offered,requested,status:'pending',createdAtMs:now,expiresAtMs:now+7*86400000})
@@ -54,7 +54,7 @@ export const respondTradeOffer=onCall({region,invoker:'public',cpu:'gcf_gen1',co
     if(Date.now()>Number(trade.expiresAtMs))throw new HttpsError('deadline-exceeded','Trade offer has expired.')
     const offered=parts(trade.offered),requested=parts(trade.requested)
     const all=new Set([...offered,...requested].map(x=>x.id))
-    for(const cardId of all){const card=await tx.get(db().doc(`cards/${cardId}`));if(!card.exists||card.get('status')!=='published')throw new HttpsError('failed-precondition','One of these cards is no longer available.')}
+    for(const cardId of all){const card=await tx.get(db().doc(`cards/${cardId}`));if(!card.exists||card.get('status')!=='published'||card.get('releaseAudience')==='beta')throw new HttpsError('failed-precondition','Beta-only cards cannot be traded, even in an older pending offer.')}
     const delta=new Map<string,number>()
     const change=(user:string,id:string,quantity:number)=>{const key=`${user}/${id}`;delta.set(key,(delta.get(key)||0)+quantity)}
     for(const c of offered){change(trade.senderUid,c.id,-c.qty);change(trade.recipientUid,c.id,c.qty)}
