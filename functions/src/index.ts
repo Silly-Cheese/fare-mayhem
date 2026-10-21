@@ -84,12 +84,13 @@ function checkCommand(data: unknown): Command {
   if (!data || typeof data!=='object') throw new HttpsError('invalid-argument','Missing action.')
   const d=data as Record<string,unknown>
   if(d.type==='end') return {type:'end'}
-  if(d.type==='choose_discard' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'choose_discard',index:d.index as number}
+  if((d.type==='choose_deck_card'||d.type==='remove_jackson')&&Number.isInteger(d.index)&&Number(d.index)>=0&&Number(d.index)<20)return {type:d.type,index:d.index as number}
+  if(d.type==='choose_discard' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<20) return {type:'choose_discard',index:d.index as number}
   if(d.type==='choose_target'&&typeof d.unitId==='string'&&/^unit-\d{1,7}$/.test(d.unitId)&& (d.targetSide==='player'||d.targetSide==='opponent'))
     return {type:'choose_target',unitId:d.unitId,targetSide:d.targetSide}
-  if(d.type==='react'&&typeof d.useNope==='boolean'&&(!d.useNope||(Number.isInteger(d.index)&&Number(d.index)>=0&&Number(d.index)<8)))
+  if(d.type==='react'&&typeof d.useNope==='boolean'&&(!d.useNope||(Number.isInteger(d.index)&&Number(d.index)>=0&&Number(d.index)<20)))
     return {type:'react',useNope:d.useNope,index:d.index as number | undefined}
-  if(d.type==='play' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<8) return {type:'play',index:d.index as number}
+  if(d.type==='play' && Number.isInteger(d.index) && Number(d.index)>=0 && Number(d.index)<20) return {type:'play',index:d.index as number}
   if(d.type==='attack' && typeof d.attackerId==='string' && /^unit-\d{1,7}$/.test(d.attackerId)
      && (d.targetId===undefined || (typeof d.targetId==='string' && /^unit-\d{1,7}$/.test(d.targetId))))
     return {type:'attack',attackerId:d.attackerId,targetId:d.targetId as string | undefined}
@@ -110,7 +111,7 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
   const tester=await db.doc(`betaTesters/${uid}`).get()
   const betaActive=tester.get('active')===true
   const snapshot=await db.collection('cards').where('status','==','published').limit(250).get()
-  const eligible=snapshot.docs.filter(d=>d.get('releaseAudience')!=='beta'||betaActive).map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
+  const eligible=snapshot.docs.filter(d=>d.get('releaseAudience')!=='beta'||(betaActive&&deckSlot!==undefined)).map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
   let ownedIds:string[]|undefined
   if(deckSlot!==undefined){
     const selected=await db.doc(`playerDecks/${uid}/slots/slot-${deckSlot}`).get()
@@ -121,6 +122,7 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
     const ownedCards=await Promise.all([...counts.entries()].map(async([id,n])=>{
       const [item,source]=await Promise.all([db.doc(`playerCollections/${uid}/cards/${id}`).get(),db.doc(`cards/${id}`).get()])
       if(source.get('releaseAudience')==='beta'&&!betaActive)throw new HttpsError('permission-denied','Active beta status is required for a beta-only deck card.')
+      if(source.get('effectKey')==='coach_messi_infinite_wlp_dominion'&&n!==1)throw new HttpsError('failed-precondition','Only one Coach Messi per deck.')
       if(source.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God per saved deck.')
       if(!source.exists||source.get('status')!=='published'||Number(item.get('quantity')||0)<n)throw new HttpsError('failed-precondition','This deck includes cards you no longer own or which have been retired.')
       const card=officialBattleCard(id,source.data()!)
