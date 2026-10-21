@@ -209,6 +209,8 @@ export { listTradeOffers, createTradeOffer, respondTradeOffer } from './trades'
 
 export { joinPvpQueue, leavePvpQueue, getPvpStatus, takePvpAction, getPvpHistory } from './multiplayer'
 
+export { getBetaStatus, listBetaTesters, setBetaTester, grantBetaWelcome } from './beta'
+
 /**
  * Phase 5 — only the verified single owner can distribute published official cards.
  * Intended for limited test collections and planned promotional releases.
