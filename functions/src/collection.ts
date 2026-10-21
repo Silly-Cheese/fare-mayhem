@@ -9,15 +9,16 @@ const goodId=(id:unknown):id is string=>typeof id==='string'&&/^[A-Za-z0-9_-]{10
 const requirePlayer=(auth:{uid:string}|undefined)=>{if(!auth?.uid)throw new HttpsError('unauthenticated','Please sign in first.');return auth.uid}
 export const getCollectionDashboard=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:6,enforceAppCheck:false},async request=>{
   const uid=requirePlayer(request.auth)
-  const [inventory,decks,cards]=await Promise.all([
+  const [inventory,decks,cards,beta]=await Promise.all([
     db().collection('playerCollections').doc(uid).collection('cards').limit(200).get(),
     db().collection('playerDecks').doc(uid).collection('slots').limit(3).get(),
-    db().collection('cards').where('status','==','published').limit(150).get()
+    db().collection('cards').where('status','==','published').limit(250).get(),
+    db().doc(`betaTesters/${uid}`).get()
   ])
   return {
     inventory:inventory.docs.map(x=>({id:x.id,quantity:Number(x.get('quantity'))||0})),
     decks:decks.docs.map(x=>({slot:Number(x.get('slot')),name:String(x.get('name')||''),ids:x.get('ids')||[]})),
-    cards:cards.docs.map(x=>({id:x.id,name:String(x.get('name')||''),nickname:String(x.get('nickname')||''),rarity:x.get('rarity'),stars:x.get('stars'),kind:x.get('kind'),imageUrl:x.get('finishedUrl')||x.get('cartoonUrl')||x.get('originalUrl')||''}))
+    cards:cards.docs.filter(x=>x.get('releaseAudience')!=='beta'||beta.get('active')===true).map(x=>({id:x.id,releaseAudience:x.get('releaseAudience')==='beta'?'beta':'public',name:String(x.get('name')||''),nickname:String(x.get('nickname')||''),rarity:x.get('rarity'),stars:x.get('stars'),kind:x.get('kind'),imageUrl:x.get('finishedUrl')||x.get('cartoonUrl')||x.get('originalUrl')||''}))
   }
 })
 export const saveCollectionDeck=onCall({region,invoker:'public',cpu:'gcf_gen1',concurrency:1,maxInstances:4,enforceAppCheck:false},async request=>{
@@ -28,10 +29,12 @@ export const saveCollectionDeck=onCall({region,invoker:'public',cpu:'gcf_gen1',c
   const count=new Map<string,number>()
   for(const id of ids){count.set(id,(count.get(id)||0)+1);if(count.get(id)!>3)throw new HttpsError('invalid-argument','Maximum three copies of each card per deck.')}
   await db().runTransaction(async tx=>{
+    const tester=await tx.get(db().doc(`betaTesters/${uid}`))
     for(const [id,n] of count){
       const [card,owned]=await Promise.all([
         tx.get(db().doc(`cards/${id}`)),tx.get(db().doc(`playerCollections/${uid}/cards/${id}`))
       ])
+      if(card.get('releaseAudience')==='beta'&&tester.get('active')!==true)throw new HttpsError('permission-denied','Only active beta testers can build decks with beta-exclusive cards.')
       if(card.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God card is allowed per deck.')
       if(!card.exists||card.get('status')!=='published'||!owned.exists||Number(owned.get('quantity')||0)<n)throw new HttpsError('failed-precondition','Your deck includes a card you do not currently own.')
     }
@@ -47,7 +50,7 @@ export async function awardPracticeWin(tx:Transaction,uid:string,state:BattleSta
   if(!available.length)return
   const id=available[randomInt(available.length)]
   const published=await tx.get(db().doc(`cards/${id}`))
-  if(!published.exists||published.get('status')!=='published')return
+  if(!published.exists||published.get('status')!=='published'||published.get('releaseAudience')==='beta')return
   const inv=db().doc(`playerCollections/${uid}/cards/${id}`),owned=await tx.get(inv)
   const quantity=Number(owned.get('quantity')||0)
   if(quantity>=999)return
