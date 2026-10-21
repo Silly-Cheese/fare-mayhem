@@ -27,8 +27,15 @@ service cloud.firestore {
       // Card drafts are written ONLY by trusted callable Cloud Functions.
       allow write: if false;
     }
+    function isActiveBeta() {
+      return signedIn()
+        && get(/databases/$(database)/documents/betaTesters/$(request.auth.uid)).data.active == true;
+    }
     match /cards/{cardId} {
-      allow get, list: if resource.data.status == 'published' || isSingleOwner();
+      allow get: if isSingleOwner() || (resource.data.status == 'published'
+        && (!('releaseAudience' in resource.data) || resource.data.releaseAudience != 'beta' || isActiveBeta()));
+      // Public discovery is routed through getVisibleCatalog: queries cannot accidentally leak beta releases.
+      allow list: if isSingleOwner();
       // Publication is performed ONLY by trusted callable Cloud Functions.
       allow write: if false;
     }
