@@ -107,8 +107,10 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
   // Read and resolve an existing session before doing any additional published-card reads.
   const old=await ref.get()
   if(old.exists && !restart){return {match:publicView(old.get('state') as BattleState),resumed:true}}
-  const snapshot=await db.collection('cards').where('status','==','published').limit(16).get()
-  const eligible=snapshot.docs.map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
+  const tester=await db.doc(`betaTesters/${uid}`).get()
+  const betaActive=tester.get('active')===true
+  const snapshot=await db.collection('cards').where('status','==','published').limit(250).get()
+  const eligible=snapshot.docs.filter(d=>d.get('releaseAudience')!=='beta'||betaActive).map(d=>officialBattleCard(d.id,d.data())).filter((c):c is NonNullable<typeof c>=>c!==null)
   let ownedIds:string[]|undefined
   if(deckSlot!==undefined){
     const selected=await db.doc(`playerDecks/${uid}/slots/slot-${deckSlot}`).get()
@@ -118,6 +120,7 @@ export const startPracticeMatch = onCall({region,invoker:'public',cpu:'gcf_gen1'
     for(const id of ids){counts.set(id,(counts.get(id)||0)+1);if(counts.get(id)!>3)throw new HttpsError('failed-precondition','Deck has too many copies of one card.')}
     const ownedCards=await Promise.all([...counts.entries()].map(async([id,n])=>{
       const [item,source]=await Promise.all([db.doc(`playerCollections/${uid}/cards/${id}`).get(),db.doc(`cards/${id}`).get()])
+      if(source.get('releaseAudience')==='beta'&&!betaActive)throw new HttpsError('permission-denied','Active beta status is required for a beta-only deck card.')
       if(source.get('effectKey')==='divine_judgment_resurrection'&&n!==1)throw new HttpsError('failed-precondition','Only one God per saved deck.')
       if(!source.exists||source.get('status')!=='published'||Number(item.get('quantity')||0)<n)throw new HttpsError('failed-precondition','This deck includes cards you no longer own or which have been retired.')
       const card=officialBattleCard(id,source.data()!)
@@ -230,7 +233,8 @@ export const grantOfficialCards = onCall({region,invoker:'public',cpu:'gcf_gen1'
   const invRef=db.doc(`playerCollections/${recipientUid}/cards/${cardId}`)
   const auditRef=db.collection('inventoryGrantAudit').doc()
   await db.runTransaction(async tx=>{
-    const [card,previous]=await Promise.all([tx.get(cardRef),tx.get(invRef)])
+    const [card,previous,beta]=await Promise.all([tx.get(cardRef),tx.get(invRef),tx.get(db.doc(`betaTesters/${recipientUid}`))])
+    if(card.get('releaseAudience')==='beta'&&beta.get('active')!==true)throw new HttpsError('permission-denied','Beta-only card grants require an active beta tester.')
     if(!card.exists||card.get('status')!=='published')
       throw new HttpsError('failed-precondition','Only published official cards can be granted.')
     const current=Number(previous.get('quantity')||0)
@@ -268,6 +272,7 @@ export const grantOfficialDeck = onCall({region,invoker:'public',cpu:'gcf_gen1',
   const auditRef=db.collection('inventoryGrantAudit').doc()
   await db.runTransaction(async tx=>{
     // All reads precede any writes, as required by Firestore transactions.
+    const recipientBeta=await tx.get(db.doc(`betaTesters/${recipientUid}`))
     const snapshots=await Promise.all(chosen.map(async c=>{
       const [card,owned]=await Promise.all([
         tx.get(db.doc(`cards/${c.id}`)),tx.get(db.doc(`playerCollections/${recipientUid}/cards/${c.id}`))
@@ -275,6 +280,7 @@ export const grantOfficialDeck = onCall({region,invoker:'public',cpu:'gcf_gen1',
       return{...c,card,owned}
     }))
     for(const item of snapshots){
+      if(item.card.get('releaseAudience')==='beta'&&recipientBeta.get('active')!==true)throw new HttpsError('permission-denied','Beta-only cards can only be granted to active beta testers.')
       if(!item.card.exists||item.card.get('status')!=='published')
         throw new HttpsError('failed-precondition','The selected deck contains an unpublished card.')
       if(Number(item.owned.get('quantity')||0)+item.qty>999)
